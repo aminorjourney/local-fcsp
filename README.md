@@ -1,4 +1,4 @@
-# FCSP Local For Home Assistant
+# Ford Charge Station Pro Local For Home Assistant (local fcsp)
 
 **Author:** Nikki Gordon-Bloomfield  
 **Based on:** [Eric Pullen's fcsp-api](https://github.com/ericpullen/fcsp-api)
