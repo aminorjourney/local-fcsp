@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VSCode settings folder
+.vscode/
+
+# macOS system files
+.DS_Store
+
+# Python virtual environments
+venv/
+.env/
+env/
+
+# IDE project files
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# Home Assistant specific
+deps/
+home-assistant_v2.db
+
