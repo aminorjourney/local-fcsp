@@ -1,4 +1,4 @@
-# FCSP Local Integration for Home Assistant
+# FCSP Local For Home Assistant
 
 **Author:** Nikki Gordon-Bloomfield  
 **Based on:** [Eric Pullen's fcsp-api](https://github.com/ericpullen/fcsp-api)
