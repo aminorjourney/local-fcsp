@@ -1,0 +1,14 @@
+{
+  "name": "Local Ford Charge Station Pro",
+  "content_in_root": false,
+  "domains": ["local_fcsp"],
+  "filename": "custom_components/local_fcsp/manifest.json",
+  "zip_release": false,
+  "changelog": "https://github.com/aminorjourney/fcsp-local-for-home-assistant/releases/tag/v0.1.0",
+  "last_update": "2025-07-01T00:00:00",
+  "issue_tracker": "https://github.com/aminorjourney/fcsp-local-for-home-assistant/issues",
+  "release_notes": "https://github.com/aminorjourney/fcsp-local-for-home-assistant/releases/tag/v0.1.0",
+  "hacs_min_version": "1.17.0",
+  "homeassistant": "2023.5.0"
+}
+
