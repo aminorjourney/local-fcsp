@@ -39,7 +39,7 @@ It allows local polling of your FCSP to expose its **charging status**, **invert
 ### ✅ HACS (Recommended)
 
 1. Go to **HACS > Integrations > Custom Repositories**  
-2. Paste in: `https://github.com/Aminorjourney/fcsp-local-integration`  
+2. Paste in: `https://github.com/Aminorjourney/fcsp-local-for-home-assistant`  
 3. Choose Category: **Integration**  
 4. Install → Restart Home Assistant
 
