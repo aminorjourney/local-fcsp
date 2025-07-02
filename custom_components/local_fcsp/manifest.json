@@ -1,7 +1,7 @@
 {
   "domain": "local_fcsp",
   "name": "Local Ford Charge Station Pro",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "author": "Nikki Gordon-Bloomfield (Aminorjourney)",
   "config_flow": true,
   "iot_class": "local_polling",
@@ -10,8 +10,5 @@
   "platforms": ["sensor"],
   "documentation": "https://github.com/Aminorjourney/fcsp-local-for-home-assistant",
   "description": "Home Assistant integration wrapping Eric Pullen's fcsp-api to interface with Ford Charge Station Pro over a local network.",
-  "icon": "mdi:ev-plug-ccs1",
-  "integration": {
-    "icon": "icon.png"
-  }
+  "icon": "icon.png"
 }
