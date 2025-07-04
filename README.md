@@ -55,13 +55,13 @@ It allows local polling of your FCSP to expose its **charging status**, **invert
 
 | Sensor Name        | Description                                  | Icon                        | Entity ID Prefix         |
 |--------------------|----------------------------------------------|-----------------------------|-------------------------|
-| `station_info`      | Basic charger metadata (serial, model, IP)   | `mdi:ev-plug-ccs1`          | `sensor.local_fcsp_`     |
-| `status`            | Charge/discharge status (Idle, Charging…)   | `mdi:ev-station`            | `sensor.local_fcsp_`     |
-| `inverter_info`     | Inverter info if attached                    | `mdi:home-import-outline`   | `sensor.local_fcsp_`     |
-| `system_state`      | Raw inverter system state code               | `mdi:transmission-tower`    | `sensor.local_fcsp_`     |
-| JSON debug sensors  | Optional detailed JSON output for nerds      | `mdi:file-document`         | `sensor.local_fcsp_`     |
+| `station_info`      | Basic charger metadata (serial, model, IP)   | `mdi:ev-plug-ccs1`          | `sensor.ford_charge_station_pro_`     |
+| `status`            | Charge/discharge status (Idle, Charging…)   | `mdi:ev-station`            | `sensor.ford_charge_station_pro_`     |
+| `inverter_info`     | Inverter info if attached                    | `mdi:home-import-outline`   | `sensor.home_integration_system`     |
+| `system_state`      | Raw inverter system state code               | `mdi:transmission-tower`    | `sensor.home_integration_system`    |
+| JSON debug sensors  | Optional detailed JSON output for nerds      | `mdi:file-document`         | `sensor.<device>_`   |
 
-*Note: All sensors are prefixed with `local_fcsp_` in Home Assistant.*
+*Note: Charge Station Pro sensors are prefixed with `ford_charge_station_pro`, while all Home Integration System (inverter) sensors re prefixed with `home_integration_system` in Home Assistant.*
 
 ---
 
@@ -73,7 +73,7 @@ Enable **debug mode** during setup to expose extra sensors showing raw JSON data
 
 ## 🔄 Updating
 
-- This integration uses a polling interval of **60 seconds** by default.
+- This integration uses a polling interval of **30 seconds** by default.
 - To update, just pull the latest code and restart Home Assistant.
 
 ---

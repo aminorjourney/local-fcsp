@@ -13,7 +13,7 @@ class LocalFCSPConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required("host", default=user_input.get("host", "192.168.1.1")): str,
             vol.Required("devkey", default=user_input.get("devkey", "1bcr1ee0j58v9vzvy31n7w0imfz5dqi85tzem7om")): str,
             vol.Optional("port", default=user_input.get("port", 443)): cv.port,
-            vol.Optional("timeout", default=user_input.get("timeout", 60)): int,
+            vol.Optional("timeout", default=user_input.get("timeout", 30)): int,
             vol.Optional("debug", default=user_input.get("debug", False)): bool,
         })
 

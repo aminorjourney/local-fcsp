@@ -13,7 +13,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     host = entry.data.get("host")
     devkey = entry.data.get("devkey")
     port = entry.data.get("port", 443)
-    timeout = entry.data.get("timeout", 60)  # <-- Consistent default here
+    timeout = entry.data.get("timeout", 30)  # <-- Consistent default here
 
     fcsp = FCSP(host=host, devkey=devkey, port=port, timeout=timeout)
 

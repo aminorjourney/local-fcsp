@@ -16,28 +16,21 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from fcsp_api import FCSP
 
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=30)
+SCAN_INTERVAL = timedelta(seconds=60)
 DOMAIN = "local_fcsp"
 
 
 def interpret_charger_status(charger_info, inverter_info):
-    _LOGGER.debug(f"interpret_charger_status called with charger_info={charger_info} inverter_info={inverter_info}")
     if not charger_info:
         return None
     state = charger_info.get("state")
-    _LOGGER.debug(f"Charger state: {state}")
     if state == "CS00":
         return "Idle"
     elif state == "CS01":
         return "Vehicle Connected"
     elif state == "CS02":
         if inverter_info and len(inverter_info) > 0:
-            try:
-                inv_state = int(inverter_info[0].get("state"))
-            except Exception:
-                inv_state = inverter_info[0].get("state")
-            _LOGGER.debug(f"Inverter state: {inv_state}")
-
+            inv_state = inverter_info[0].get("state")
             if inv_state == 1:
                 return "Preparing To Power Home"
             elif inv_state == 5:
@@ -48,22 +41,11 @@ def interpret_charger_status(charger_info, inverter_info):
     return state or "Unknown"
 
 
-def dump_json(data):
-    try:
-        return json.dumps(data, indent=2)
-    except Exception as e:
-        _LOGGER.error(f"Error dumping JSON data: {e}")
-        return "Error dumping JSON"
-
-
 SENSORS = [
     ("Station Info", lambda data: "Online" if data else None, None, "charger_info", "mdi:ev-plug-ccs1", False, "charge_station"),
     ("Status", None, None, None, "mdi:ev-station", False, "charge_station"),
     ("Inverter Info", lambda data: "Available" if data else None, None, "inverter_info", "mdi:home-import-outline", False, "home_integration"),
     ("System State", lambda data: data[0].get("state") if data and len(data) > 0 else None, None, "inverter_info", "mdi:transmission-tower", False, "home_integration"),
-    ("Status Raw JSON", dump_json, None, "status", "mdi:file-document", True, None),
-    ("Charger Info Raw JSON", dump_json, None, "charger_info", "mdi:file-document", True, None),
-    ("Inverter Info Raw JSON", dump_json, None, "inverter_info", "mdi:file-document", True, None),
 ]
 
 
@@ -71,7 +53,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     data = hass.data[DOMAIN][entry.entry_id]
     fcsp = data["fcsp"]
     home_integration_attached = data.get("home_integration_attached", False)
-    debug = entry.options.get("debug", True)  # Default to True to see debug sensors
 
     coordinator = FCSPDataUpdateCoordinator(hass, fcsp)
     await coordinator.async_config_entry_first_refresh()
@@ -79,8 +60,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     entities = []
 
     for name, key_or_func, unit, source, icon, debug_only, device_key in SENSORS:
-        if debug_only and not debug:
-            continue
         if device_key == "home_integration" and not home_integration_attached:
             continue
 
@@ -149,7 +128,6 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = self._get_device_info()
 
     def _get_device_info(self):
-        config = self._hass.data[DOMAIN][self._entry_id]["config"]
         if self._device_key == "charge_station":
             return DeviceInfo(
                 identifiers={(DOMAIN, f"charge_station_{self._entry_id}")},
@@ -183,7 +161,30 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        return self._attributes
+        data = self.coordinator.data
+        if not data:
+            return {}
+
+        attrs = self._attributes.copy() if self._attributes else {}
+
+        # Add raw JSON debug info as attributes for relevant sensors
+        try:
+            if self._attr_name == "Status":
+                status_raw = data.get("status")
+                if status_raw:
+                    attrs["status_raw_json"] = json.dumps(status_raw, indent=2)
+            elif self._attr_name == "Station Info":
+                charger_info_raw = data.get("charger_info")
+                if charger_info_raw:
+                    attrs["charger_info_raw_json"] = json.dumps(charger_info_raw, indent=2)
+            elif self._attr_name == "Inverter Info":
+                inverter_info_raw = data.get("inverter_info")
+                if inverter_info_raw:
+                    attrs["inverter_info_raw_json"] = json.dumps(inverter_info_raw, indent=2)
+        except Exception as e:
+            _LOGGER.error(f"Error dumping JSON debug attributes for {self._attr_name}: {e}")
+
+        return attrs
 
     @property
     def available(self):
@@ -207,41 +208,4 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
         if source_data is None:
             return None
 
-        if self._attr_name == "Inverter Info":
-            if source_data and len(source_data) > 0:
-                status_data = data.get("status") or {}
-                inverter_count = status_data.get("inverter_count", "Unknown")
-                self._attributes = {
-                    "vendor": source_data[0].get("vendor"),
-                    "model": source_data[0].get("model"),
-                    "serial number": source_data[0].get("slno"),
-                    "inverters_connected": inverter_count,
-                }
-                return "Available"
-            return None
-
-        if self._attr_name == "Station Info":
-            status_data = data.get("status") or {}
-            max_amps = status_data.get("max_amps")
-            self._attributes = {
-                "model_name": source_data.get("vHw"),
-                "model_number": source_data.get("catalogNo"),
-                "serial_number": source_data.get("traceNo"),
-                "software_version": source_data.get("vWiFi"),
-                "ip_address": source_data.get("ipAddr"),
-                "hardware_current_limit": f"{max_amps} A" if max_amps else "Unknown",
-                "home_integration_system_attached": bool(source_data.get("inverter", 0)),
-            }
-            return "Online"
-
-        if callable(self._key_or_func):
-            try:
-                value = self._key_or_func(source_data)
-            except Exception as e:
-                _LOGGER.error(f"Error processing sensor value for {self._attr_name}: {e}")
-                value = None
-        else:
-            value = source_data.get(self._key_or_func) if isinstance(source_data, dict) else None
-
-        self._attributes = {}
-        return value
+        if self._at_

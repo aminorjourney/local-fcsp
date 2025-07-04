@@ -8,7 +8,7 @@
   "requirements": ["fcsp-api>=0.1.3,<0.2"],
   "codeowners": ["@aminorjourney"],
   "platforms": ["sensor"],
-  "documentation": "https://github.com/Aminorjourney/fcsp-local-for-home-assistant",
+  "documentation": "https://github.com/Aminorjourney/local_fcsp",
   "description": "Home Assistant integration wrapping Eric Pullen's fcsp-api to interface with Ford Charge Station Pro over a local network.",
   "icon": "icon.png"
 }
