@@ -3,6 +3,7 @@ import json
 import logging
 from datetime import timedelta
 
+from .const import DOMAIN, DEFAULT_SCAN_INTERVAL, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import (
@@ -16,9 +17,6 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from fcsp_api import FCSP
 
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=30)
-DOMAIN = "local_fcsp"
-
 
 def interpret_charger_status(charger_info, inverter_info):
     _LOGGER.debug(f"interpret_charger_status called with charger_info={charger_info} inverter_info={inverter_info}")
@@ -47,7 +45,6 @@ def interpret_charger_status(charger_info, inverter_info):
         return "Power Transferring"
     return state or "Unknown"
 
-
 def dump_json(data):
     try:
         return json.dumps(data, indent=2)
@@ -55,30 +52,48 @@ def dump_json(data):
         _LOGGER.error(f"Error dumping JSON data: {e}")
         return "Error dumping JSON"
 
-
+# List of sensors with tuple:
+# (name, key_or_func, unit, source, icon, debug_only, device_key, enabled_default)
 SENSORS = [
-    ("Station Info", lambda data: "Online" if data else None, None, "charger_info", "mdi:ev-plug-ccs1", False, "charge_station"),
-    ("Status", None, None, None, "mdi:ev-station", False, "charge_station"),
-    ("Inverter Info", lambda data: "Available" if data else None, None, "inverter_info", "mdi:home-import-outline", False, "home_integration"),
-    ("System State", lambda data: data[0].get("state") if data and len(data) > 0 else None, None, "inverter_info", "mdi:transmission-tower", False, "home_integration"),
-    ("Status Raw JSON", dump_json, None, "status", "mdi:file-document", True, None),
-    ("Charger Info Raw JSON", dump_json, None, "charger_info", "mdi:file-document", True, None),
-    ("Inverter Info Raw JSON", dump_json, None, "inverter_info", "mdi:file-document", True, None),
-]
+    ("Station Info", lambda data: "Online" if data else None, None, "charger_info", "mdi:ev-plug-ccs1", False, "charge_station", True),
+    ("Status", None, None, None, "mdi:ev-station", False, "charge_station", True),
+    ("Inverter Info", lambda data: "Available" if data else None, None, "inverter_info", "mdi:home-import-outline", False, "home_integration", True),
+    ("System State", lambda data: data[0].get("state") if data and len(data) > 0 else None, None, "inverter_info", "mdi:transmission-tower", False, "home_integration", True),
 
+    # Raw JSON debug sensors (debug_only = True, disabled by default)
+    ("Status Raw JSON", dump_json, None, "status", "mdi:file-document", True, None, False),
+    ("Charger Info Raw JSON", dump_json, None, "charger_info", "mdi:file-document", True, None, False),
+    ("Inverter Info Raw JSON", dump_json, None, "inverter_info", "mdi:file-document", True, None, False),
+
+    # Newly added extras — mostly debug only, disabled by default except WiFi/Bluetooth (debug only but enabled)
+    ("Charger Config Status", dump_json, None, "config_status", "mdi:clipboard-check", True, None, False),
+    ("Network Info", dump_json, None, "network_info", "mdi:access-point-network", True, None, False),
+
+    ("WiFi Networks", dump_json, None, "wifi_networks", "mdi:wifi", True, None, True),
+    ("WiFi Config", dump_json, None, "wifi_config", "mdi:wifi-settings", True, None, True),
+
+    ("Bluetooth Pairing Info", dump_json, None, "bluetooth_pairing_info", "mdi:bluetooth", True, None, True),
+    ("Bluetooth Pairing Status", dump_json, None, "pairing_status", "mdi:bluetooth-connect", True, None, True),
+    ("Paired Devices", dump_json, None, "paired_devices", "mdi:bluetooth-audio", True, None, True),
+
+    ("Device Summary", dump_json, None, "device_summary", "mdi:information-outline", True, None, False),
+]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     data = hass.data[DOMAIN][entry.entry_id]
     fcsp = data["fcsp"]
     home_integration_attached = data.get("home_integration_attached", False)
-    debug = entry.options.get("debug", True)  # Default to True to see debug sensors
+    debug = entry.options.get("debug", True)  # Default True for debug sensors
 
-    coordinator = FCSPDataUpdateCoordinator(hass, fcsp)
+    scan_interval_seconds = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    scan_interval = timedelta(seconds=scan_interval_seconds)
+
+    coordinator = FCSPDataUpdateCoordinator(hass, fcsp, scan_interval)
     await coordinator.async_config_entry_first_refresh()
 
     entities = []
 
-    for name, key_or_func, unit, source, icon, debug_only, device_key in SENSORS:
+    for name, key_or_func, unit, source, icon, debug_only, device_key, enabled_default in SENSORS:
         if debug_only and not debug:
             continue
         if device_key == "home_integration" and not home_integration_attached:
@@ -95,19 +110,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 device_key=device_key,
                 entry_id=entry.entry_id,
                 hass=hass,
+                enabled_default=enabled_default,
             )
         )
 
     async_add_entities(entities, True)
 
-
 class FCSPDataUpdateCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, fcsp: FCSP):
+    def __init__(self, hass: HomeAssistant, fcsp: FCSP, scan_interval: timedelta):
         super().__init__(
             hass,
             _LOGGER,
             name="Local FCSP Data Coordinator",
-            update_interval=SCAN_INTERVAL,
+            update_interval=scan_interval,
         )
         self._fcsp = fcsp
 
@@ -117,19 +132,35 @@ class FCSPDataUpdateCoordinator(DataUpdateCoordinator):
             await loop.run_in_executor(None, self._fcsp.connect)
             charger_info = await loop.run_in_executor(None, self._fcsp.get_charger_info)
             inverter_info = await loop.run_in_executor(None, self._fcsp.get_inverter_info)
+            config_status = await loop.run_in_executor(None, self._fcsp.get_config_status)
+            network_info = await loop.run_in_executor(None, self._fcsp.get_network_info)
             status = await loop.run_in_executor(None, self._fcsp.get_status)
+            wifi_networks = await loop.run_in_executor(None, self._fcsp.get_wifi_networks)
+            wifi_config = await loop.run_in_executor(None, self._fcsp.get_wifi_config)
+            bluetooth_pairing_info = await loop.run_in_executor(None, self._fcsp.get_bluetooth_pairing_info)
+            pairing_status = await loop.run_in_executor(None, self._fcsp.get_pairing_status)
+            paired_devices = await loop.run_in_executor(None, self._fcsp.get_paired_devices)
+            device_summary = await loop.run_in_executor(None, self._fcsp.get_device_summary)
+
             return {
                 "charger_info": charger_info,
                 "inverter_info": inverter_info,
+                "config_status": config_status,
+                "network_info": network_info,
                 "status": status,
+                "wifi_networks": wifi_networks,
+                "wifi_config": wifi_config,
+                "bluetooth_pairing_info": bluetooth_pairing_info,
+                "pairing_status": pairing_status,
+                "paired_devices": paired_devices,
+                "device_summary": device_summary,
             }
         except Exception as err:
             _LOGGER.error(f"Error communicating with FCSP: {err}")
             raise UpdateFailed(f"FCSP update failed: {err}") from err
 
-
 class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
-    def __init__(self, name, key_or_func, unit, source, coordinator, icon, device_key, entry_id, hass):
+    def __init__(self, name, key_or_func, unit, source, coordinator, icon, device_key, entry_id, hass, enabled_default=True):
         super().__init__(coordinator)
 
         self._key_or_func = key_or_func
@@ -147,6 +178,7 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
         self._attr_native_unit_of_measurement = unit
         self._attr_has_entity_name = True
         self._attr_device_info = self._get_device_info()
+        self._attr_entity_registry_enabled_default = enabled_default
 
     def _get_device_info(self):
         config = self._hass.data[DOMAIN][self._entry_id]["config"]
@@ -183,6 +215,19 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        # For raw/json sensors, put full data in attributes instead of state (to avoid truncation)
+        if self._attr_name.endswith("Raw JSON") or self._attr_name in {
+            "Charger Config Status",
+            "Network Info",
+            "WiFi Networks",
+            "WiFi Config",
+            "Bluetooth Pairing Info",
+            "Bluetooth Pairing Status",
+            "Paired Devices",
+            "Device Summary",
+        }:
+            data = self.coordinator.data.get(self._source)
+            return data if isinstance(data, dict) else {"data": data}
         return self._attributes
 
     @property
@@ -234,6 +279,7 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
             }
             return "Online"
 
+        # For other sensors, if key_or_func is a callable, call it on the data
         if callable(self._key_or_func):
             try:
                 value = self._key_or_func(source_data)
