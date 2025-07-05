@@ -1,47 +1,57 @@
-from homeassistant.helpers import device_registry as dr
-from homeassistant.exceptions import ConfigEntryNotReady
-from .fcsp_api import FCSP  # Adjust import as needed
+import voluptuous as vol
+from homeassistant import config_entries
+import homeassistant.helpers.config_validation as cv
+
 from .const import DOMAIN, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
 
-async def async_setup(hass, config):
-    """Set up the FCSP integration."""
-    hass.data.setdefault(DOMAIN, {})
-    return True
+class LocalFCSPConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    VERSION = 1
 
-async def async_setup_entry(hass, entry):
-    """Set up FCSP from a config entry."""
+    def _get_data_schema(self, user_input=None):
+        user_input = user_input or {}
+        return vol.Schema({
+            vol.Required("host", default=user_input.get("host", "192.168.1.1")): str,
+            vol.Required("devkey", default=user_input.get("devkey", "")): str,
+            vol.Optional("port", default=user_input.get("port", 443)): cv.port,
+            vol.Optional("timeout", default=user_input.get("timeout", 30)): int,
+            vol.Optional("debug", default=user_input.get("debug", False)): bool,
+            vol.Optional(CONF_SCAN_INTERVAL, default=user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): int,
+        })
 
-    host = entry.data.get("host")
-    devkey = entry.data.get("devkey")
-    port = entry.data.get("port", 443)
-    timeout = entry.data.get("timeout", 10)
+    async def async_step_user(self, user_input=None):
+        errors = {}
 
-    # Create FCSP API client
-    fcsp = FCSP(host=host, devkey=devkey, port=port, timeout=timeout)
+        if user_input is not None:
+            return self.async_create_entry(
+                title="Local Ford Charge Station Pro",
+                data=user_input
+            )
 
-    try:
-        # Test connection or minimal API call in executor (since fcsp likely sync)
-        await hass.async_add_executor_job(fcsp.get_status)
-    except Exception as err:
-        raise ConfigEntryNotReady from err
+        data_schema = self._get_data_schema(user_input)
 
-    # Get scan interval from options or fallback to defaults
-    scan_interval = entry.options.get(CONF_SCAN_INTERVAL, entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
+        return self.async_show_form(
+            step_id="user",
+            data_schema=data_schema,
+            errors=errors
+        )
 
-    # Save the entry data and API client for later use if needed
-    hass.data[DOMAIN][entry.entry_id] = {
-        "config": entry.data,
-        "fcsp": fcsp,
-        "scan_interval": scan_interval,
-    }
+    async def async_get_options_flow(self, config_entry):
+        return LocalFCSPOptionsFlowHandler(config_entry)
 
-    # Forward setup to platforms only if connection test succeeded
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
-    return True
+class LocalFCSPOptionsFlowHandler(config_entries.OptionsFlow):
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
 
-async def async_unload_entry(hass, entry):
-    """Unload a config entry."""
-    await hass.config_entries.async_forward_entry_unload(entry, "sensor")
-    hass.data[DOMAIN].pop(entry.entry_id, None)
-    return True
+    async def async_step_init(self, user_input=None):
+        user_input = user_input or {}
+
+        data_schema = vol.Schema({
+            vol.Optional(CONF_SCAN_INTERVAL, default=self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): int,
+            vol.Optional("debug", default=self.config_entry.options.get("debug", False)): bool,
+        })
+
+        if user_input:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(step_id="init", data_schema=data_schema)

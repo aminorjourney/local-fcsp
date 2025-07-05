@@ -9,7 +9,7 @@
   "issue_tracker": "https://github.com/aminorjourney/fcsp-local-for-home-assistant/issues",
   "hacs_min_version": "1.17.0",
   "homeassistant": "2025.7.0",
-  "release_tag": "v0.2.0a1",
+  "release_tag": "v0.2.0a2",
   "version": "0.2.0a1",
   "last_update": "2025-07-04T00:00:00"
 }
