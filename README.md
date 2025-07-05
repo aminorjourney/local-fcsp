@@ -1,36 +1,36 @@
-# Ford Charge Station Pro Local For Home Assistant (local fcsp)
+# Ford Charge Station Pro Local for Home Assistant (`local_fcsp`)
 
 **Author:** Nikki Gordon-Bloomfield  
-**Based on:** [Eric Pullen's fcsp-api](https://github.com/ericpullen/fcsp-api)
+**Based on:** [Eric Pullen’s `fcsp-api`](https://github.com/ericpullen/fcsp-api)
 
 ---
 
 ## ⚡ What is this?
 
-This is a Home Assistant **custom integration** that acts as a wrapper around Eric Pullen's excellent Python library for the **Ford Charge Station Pro (FCSP)**.  
-It allows local polling of your FCSP to expose its **charging status**, **inverter behavior**, and **device metrics** as sensors within Home Assistant — all without relying on the cloud.
+A Home Assistant **custom integration** that polls your **Ford Charge Station Pro (FCSP)** over the **local network** — no cloud required.
+
+It wraps the excellent [fcsp-api](https://github.com/ericpullen/fcsp-api) Python library and surfaces status, power flow, and inverter data (if present) as **native sensors** in Home Assistant.
 
 ---
 
 ## 🛠️ Features
 
-- Monitors EV connection and charging status
-- Detects when power is flowing to the home (Intelligent Backup Power)
-- Optionally shows inverter details (if attached)
-- Custom MDI icons for visual clarity
-- Optional debug sensors for JSON dumps
-- Fully local: no internet or cloud calls
+- 🔌 Detects vehicle connection & charging status  
+- ⚡️ Monitors home power flow (Intelligent Backup Power)  
+- 🏠 Shows inverter status and details (if connected)  
+- 🕒 Adds “Last Updated” sensors showing relative time (e.g., _“2 minutes ago”_)  
+- 🧪 Optional debug sensors with JSON output for developers  
+- 🛡️ 100% local, no cloud dependency  
+- 🧰 MDI icons and clean device grouping in the UI  
 
 ---
 
-## 🚨 Important Notes
+## 🚨 Requirements & Caveats
 
-- **Not a professional coder!**  
-  This project is a weekend hack, not an enterprise product. Use it at your own risk.
-
-- **Your FCSP must be accessible over the local network**, and you must know its IP address.
-
-- The **Developer Key (`devkey`) is the same for all units**. It will be pre-filled during setup — don’t change it unless you *really* know what you're doing.
+- Your **FCSP must be accessible over your local network** (IP address required).
+- The **developer key (`devkey`) is currently universal** — it’s auto-filled during setup.
+- Inverter sensors will only show up if an inverter is detected.
+- This is a personal project, not an official or commercial tool — use at your own risk.
 
 ---
 
@@ -38,76 +38,84 @@ It allows local polling of your FCSP to expose its **charging status**, **invert
 
 ### ✅ HACS (Recommended)
 
-1. Go to **HACS > Integrations > Custom Repositories**  
-2. Paste in: `https://github.com/Aminorjourney/fcsp-local-for-home-assistant`  
-3. Choose Category: **Integration**  
-4. Install → Restart Home Assistant
+1. Go to **HACS → Integrations → Custom Repositories**
+2. Add: `https://github.com/Aminorjourney/fcsp-local-for-home-assistant`
+3. Choose **Integration**
+4. Install → Reboot Home Assistant
 
 ### 📁 Manual
 
-1. Copy the entire `fcsp_local/` folder into your Home Assistant `custom_components/` directory.  
-2. Restart Home Assistant.  
-3. Go to **Settings > Devices & Services > Add Integration**, search for **"Ford Charge Station Pro Local"**, and complete the setup.
+1. Copy the entire `fcsp_local/` folder into `config/custom_components/`  
+2. Restart Home Assistant  
+3. Go to **Settings → Devices & Services → Add Integration**  
+4. Search for **"Ford Charge Station Pro Local"** and follow the setup wizard
 
 ---
 
-## 🧠 Exposed Sensors
+## 🔍 Available Sensors
 
-| Sensor Name        | Description                                  | Icon                        | Entity ID Prefix         |
-|--------------------|----------------------------------------------|-----------------------------|-------------------------|
-| `station_info`      | Basic charger metadata (serial, model, IP)   | `mdi:ev-plug-ccs1`          | `sensor.local_fcsp_`     |
-| `status`            | Charge/discharge status (Idle, Charging…)   | `mdi:ev-station`            | `sensor.local_fcsp_`     |
-| `inverter_info`     | Inverter info if attached                    | `mdi:home-import-outline`   | `sensor.local_fcsp_`     |
-| `system_state`      | Raw inverter system state code               | `mdi:transmission-tower`    | `sensor.local_fcsp_`     |
-| JSON debug sensors  | Optional detailed JSON output for nerds      | `mdi:file-document`         | `sensor.local_fcsp_`     |
+| Sensor Name           | Description                                        | Icon                       | Prefix                       |
+|------------------------|----------------------------------------------------|-----------------------------|-------------------------------|
+| **Info**               | Model, serial, firmware, IP address, etc.         | `mdi:ev-plug-ccs1` / `mdi:home-import-outline` | `sensor.ford_charge_station_pro_` / `sensor.home_integration_system_` |
+| **Status**             | EV state: Idle, Charging, etc.                    | `mdi:ev-station`            | `sensor.ford_charge_station_pro_status`     |
+| **State**              | Inverter status (Off, Powering Home, etc.)        | `mdi:sine-wave`             | `sensor.home_integration_system_state`      |
+| **Last Updated**       | How fresh the data is ("x minutes ago")           | `mdi:update`                | `sensor.<device>_last_updated`              |
+| **Raw Data** (optional) | Full cleaned JSON output for nerds                | `mdi:magnify`               | `sensor.<device>_raw_data`                  |
+| **System Info** (optional) | Charger config, network info, device summary     | `mdi:file-document`         | `sensor.config_status`, etc.                |
 
-*Note: All sensors are prefixed with `local_fcsp_` in Home Assistant.*
+> 💡 Sensor names may vary slightly in Home Assistant but are always prefixed with `ford_charge_station_pro` or `home_integration_system`.
 
 ---
 
 ## 🧪 Debug Mode
 
-Enable **debug mode** during setup to expose extra sensors showing raw JSON data from the charger and inverter systems. Useful for troubleshooting or development.
+When enabled during setup:
+
+- Adds sensors showing raw JSON data for charger, inverter, and system internals
+- Useful for troubleshooting, reverse-engineering, or future development
+
+Disable debug mode to hide them.
 
 ---
 
-## 🔄 Updating
+## 🔄 Polling & Updates
 
-- This integration uses a polling interval of **60 seconds** by default.
-- To update, just pull the latest code and restart Home Assistant.
+- The default polling interval is **30 seconds**
+- You can change it via the integration options menu
+- To update, just pull the latest code and restart Home Assistant
 
 ---
 
-## 👩‍💻 Developer Info
+## 👩‍💻 Developer Notes
 
-This integration creates a `DeviceInfo` entry for:  
-- The **Ford Charge Station Pro**, using the `mdi:ev-plug-ccs1` icon.  
-- The **Inverter/Home Integration System** (if attached), using `mdi:home-import-outline`.
-
-All sensors are associated with these devices, allowing clean grouping in the UI.
+- Uses `DeviceInfo` to register the **FCSP** and (optionally) the **Inverter**
+- All sensors are tied to their respective device for better UI grouping
+- Time parsing uses Home Assistant’s built-in `dt` helpers
+- Raw inverter firmware is converted to readable **hex string** (`01 02 03…`)
+- Null characters, extra whitespace, and junk are removed from sensor fields
 
 ---
 
 ## 📜 License & Disclaimer
 
-MIT License — see `LICENSE` file.
+MIT License — see the `LICENSE` file.
 
-This integration is provided **as-is**, with no warranty or support. I am not responsible for any fried fuses, tripped breakers, or weird Home Assistant behavior.
+This project is unofficial, unsupported, and likely imperfect. It may break, behave oddly, or do weird stuff.  
+Use at your own risk — and please don’t sue me if it melts your FCSP.
 
 ---
 
 ## 🙏 Thanks
 
-- Huge thanks to [Eric Pullen](https://github.com/ericpullen) for building `fcsp-api`  
-- To the Home Assistant devs for making local integrations easy  
-- To the EV community for pushing boundaries
+- 🙌 [Eric Pullen](https://github.com/ericpullen) for building `fcsp-api`
+- ❤️ The Home Assistant devs and community
+- 🔌 EV folks everywhere who just want good tools that don’t need cloud
 
 ---
 
 ## 📣 Contact
 
-Built by **Nikki Gordon-Bloomfield** from [Transport Evolved](https://youtube.com/transportevolved) — not a professional coder, just someone who loves EVs, Home Assistant, and making stuff work better.
+Built by **Nikki Gordon-Bloomfield** from [Transport Evolved](https://youtube.com/transportevolved)
 
-You can open issues or ideas via the [GitHub issues page](https://github.com/Aminorjourney/fcsp-local-integration/issues).
-
-You can also find me on Mastodon: [@Aminorjourney@lgbtqia.space](https://lgbtqia.space/@Aminorjourney)
+- GitHub issues? 👉 [fcsp-local-integration/issues](https://github.com/Aminorjourney/fcsp-local-integration/issues)
+- Mastodon: [@Aminorjourney@lgbtqia.space](https://lgbtqia.space/@Aminorjourney)
