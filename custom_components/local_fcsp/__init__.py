@@ -1,6 +1,6 @@
 from homeassistant.helpers import device_registry as dr
 from homeassistant.exceptions import ConfigEntryNotReady
-from .fcsp_api import FCSP  # Adjust import as needed
+from fcsp_api import FCSP  
 from .const import DOMAIN, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
 
 async def async_setup(hass, config):
