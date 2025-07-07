@@ -113,7 +113,7 @@ But future functionality **may** include:
 ## ❓ FAQ
 
 **🔋 Does this let me start or stop charging?**  
-Nope — this is a **passive sensor-only integration** for now. Starting/stopping charging is still handled via FordPass.
+Nope — this is a **passive sensor-only integration** for now. Starting/stopping charging is something that you can do through Ford's official smartphone **FordPass** app, and the developers of **FordPass-HA** [SquidBytes] and [marq24] are working on develping this functionality through `fordpass-ha` (https://github.com/marq24/ha-fordpass)  (While (https://github.com/itchannel/fordpass-ha) is the original, (https://github.com/marq24/ha-fordpass)is the EV and PHEV specific fork offering EV owners the most comprehensive feature-set at this time. 
 
 **⚡ Can I change the current limit?**  
 No. The integration reads the **hardware current limit** as set inside the unit at install.  
@@ -152,6 +152,7 @@ We recommend a **minimum of 30 seconds** between updates to keep it stable.
 ## 🙏 Thanks
 
 - ❤️ [Eric Pullen](https://github.com/ericpullen) for building `fcsp-api`
+- ❤️ [SquidBytes] and [marq24] from (https://github.com/marq24/ha-fordpass) and (https://github.com/itchannel/fordpass-ha) for working on `fordpass-ha`
 - 🙌 Home Assistant devs and community
 - 🚗 EV owners making the world cleaner, greener, and just a little bit smarter
 

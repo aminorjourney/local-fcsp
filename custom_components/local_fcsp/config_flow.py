@@ -22,7 +22,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     
     This shows the form to configure the integration in the UI."""
 
-    # You know, because you're not a binary robot or Johnny Five.
+    # You know, because you're not a Binar or Johnny Five.
     # But if you are, 01001000 01100101 01101100 01101100 01101111 (Hello in binary!)
 
     VERSION = 1
