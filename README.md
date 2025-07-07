@@ -1,36 +1,36 @@
-# Ford Charge Station Pro Local for Home Assistant (`local_fcsp`)
+# ⚡ Ford Charge Station Pro Local for Home Assistant (`local_fcsp`)
 
 **Author:** Nikki Gordon-Bloomfield  
 **Based on:** [Eric Pullen’s `fcsp-api`](https://github.com/ericpullen/fcsp-api)
 
 ---
 
-## ⚡ What is this?
+## 🚘 What Is This?
 
-A Home Assistant **custom integration** that polls your **Ford Charge Station Pro (FCSP)** over the **local network** — no cloud required.
+A Home Assistant **custom integration** for your **Ford Charge Station Pro (FCSP)** — 100% local, no Internet required.
 
-It wraps the excellent [fcsp-api](https://github.com/ericpullen/fcsp-api) Python library and surfaces status, power flow, and inverter data (if present) as **native sensors** in Home Assistant.
+It wraps [Eric Pullen’s `fcsp-api`](https://github.com/ericpullen/fcsp-api) Python library to surface charger and inverter data as native Home Assistant sensors.  
+Status, power flow, raw JSON, and inverter metrics — all formatted cleanly for your dashboard.
 
 ---
 
 ## 🛠️ Features
 
 - 🔌 Detects vehicle connection & charging status  
-- ⚡️ Monitors home power flow (Intelligent Backup Power)  
-- 🏠 Shows inverter status and details (if connected)  
-- 🕒 Adds “Last Updated” sensors showing relative time (e.g., _“2 minutes ago”_)  
-- 🧪 Optional debug sensors with JSON output for developers  
-- 🛡️ 100% local, no cloud dependency  
-- 🧰 MDI icons and clean device grouping in the UI  
+- ⚡ Shows Intelligent Backup Power (IBP) state  
+- 🏠 Displays inverter details if installed  
+- 🕒 “Last Updated” sensor shows time since last data change (e.g., _“2 minutes ago”_)  
+- 🧪 Optional debug sensors with cleaned JSON output  
+- 📦 MDI icons and device-level grouping for clean dashboards
 
 ---
 
-## 🚨 Requirements & Caveats
+## 🚨 Requirements
 
-- Your **FCSP must be accessible over your local network** (IP address required).
-- The **developer key (`devkey`) is currently universal** — it’s auto-filled during setup.
-- Inverter sensors will only show up if an inverter is detected.
-- This is a personal project, not an official or commercial tool — use at your own risk.
+- Your **FCSP must be reachable over your local network** (IP required)
+- The **developer key** is currently universal and pre-filled
+- Inverter sensors only appear if an inverter is connected
+- This is **not an official Ford product** — use it at your own risk
 
 ---
 
@@ -40,76 +40,120 @@ It wraps the excellent [fcsp-api](https://github.com/ericpullen/fcsp-api) Python
 
 1. Go to **HACS → Integrations → Custom Repositories**
 2. Add: `https://github.com/Aminorjourney/fcsp-local-for-home-assistant`
-3. Choose **Integration**
-4. Install → Reboot Home Assistant
+3. Set category to **Integration**
+4. Click **Install**
+5. Reboot Home Assistant
 
-### 📁 Manual
+### 📁 Manual Installation
 
-1. Copy the entire `fcsp_local/` folder into `config/custom_components/`  
-2. Restart Home Assistant  
-3. Go to **Settings → Devices & Services → Add Integration**  
-4. Search for **"Ford Charge Station Pro Local"** and follow the setup wizard
+1. Copy the `fcsp_local/` folder into `config/custom_components/`
+2. Restart Home Assistant
+3. Go to **Settings → Devices & Services → Add Integration**
+4. Search for **“Ford Charge Station Pro Local”** and follow the setup wizard
 
 ---
 
 ## 🔍 Available Sensors
 
-| Sensor Name           | Description                                        | Icon                       | Prefix                       |
-|------------------------|----------------------------------------------------|-----------------------------|-------------------------------|
-| **Info**               | Model, serial, firmware, IP address, etc.         | `mdi:ev-plug-ccs1` / `mdi:home-import-outline` | `sensor.ford_charge_station_pro_` / `sensor.home_integration_system_` |
-| **Status**             | EV state: Idle, Charging, etc.                    | `mdi:ev-station`            | `sensor.ford_charge_station_pro_status`     |
-| **State**              | Inverter status (Off, Powering Home, etc.)        | `mdi:sine-wave`             | `sensor.home_integration_system_state`      |
-| **Last Updated**       | How fresh the data is ("x minutes ago")           | `mdi:update`                | `sensor.<device>_last_updated`              |
-| **Raw Data** (optional) | Full cleaned JSON output for nerds                | `mdi:magnify`               | `sensor.<device>_raw_data`                  |
-| **System Info** (optional) | Charger config, network info, device summary     | `mdi:file-document`         | `sensor.config_status`, etc.                |
+> 💡 Sensor names may vary slightly in Home Assistant, but are always prefixed with:  
+> - `sensor.ford_charge_station_pro_...`  
+> - `sensor.home_integration_system_...`
 
-> 💡 Sensor names may vary slightly in Home Assistant but are always prefixed with `ford_charge_station_pro` or `home_integration_system`.
+| Sensor Name             | Description                                          | Icon                       |
+|-------------------------|------------------------------------------------------|----------------------------|
+| **Info**                | Model, serial, firmware, IP address, etc.            | `mdi:information`          |
+| **Status**              | Charger status (Idle, Charging, Powering Home, etc.) | `mdi:ev-station`           |
+| **State**               | Inverter state (Off, Powering Home, etc.)            | `mdi:sine-wave`            |
+| **Last Updated**        | How recently the data changed                        | `mdi:update`               |
+| **Info Raw JSON**       | Cleaned raw JSON for charger/inverter                | `mdi:file-search-outline`  |
+| **Config Status**       | Charger configuration details                        | `mdi:clipboard-check`      |
+| **Network Info**        | IP, MAC, and connectivity data                       | `mdi:access-point-network` |
+| **Device Summary**      | Aggregated FCSP hardware metadata                    | `mdi:information-outline`  |
 
 ---
 
 ## 🧪 Debug Mode
 
-When enabled during setup:
+If enabled during setup:
 
-- Adds sensors showing raw JSON data for charger, inverter, and system internals
-- Useful for troubleshooting, reverse-engineering, or future development
-
-Disable debug mode to hide them.
+- Adds “Raw JSON” sensors for charger, inverter, and system internals
+- Great for troubleshooting or reverse-engineering
+- Turn it off if you prefer a cleaner sensor list
 
 ---
 
 ## 🔄 Polling & Updates
 
-- The default polling interval is **30 seconds**
-- You can change it via the integration options menu
-- To update, just pull the latest code and restart Home Assistant
+- Default polling interval is **60 seconds**
+- You can reduce it (30 seconds works fine), but excessive polling may cause unreliable FCSP responses.  
+  _Ask me how I know._ 💀
+
+To update:
+- Pull the latest version from GitHub
+- Restart Home Assistant
+
+---
+
+## 🧭 Future Development
+
+This integration doesn't (yet) expose **all** the data that [`fcsp-api`](https://github.com/ericpullen/fcsp-api) makes available — and it’s currently **read-only**.  
+But future functionality **may** include:
+
+- Manual control (start/stop charging)
+- Adjustable current limit
+- More sensors and attributes
+- Event-based automation triggers
+
+> 🧑‍💻 **Want to help?**  
+> PRs are welcome! If you're handy with Python or Home Assistant development, fork it and send some love.  
+> Even issue reports or ideas are super helpful.
+
+---
+
+## ❓ FAQ
+
+**🔋 Does this let me start or stop charging?**  
+Nope — this is a **passive sensor-only integration** for now. Starting/stopping charging is still handled via FordPass.
+
+**⚡ Can I change the current limit?**  
+No. The integration reads the **hardware current limit** as set inside the unit at install.  
+You *can* set a software limit, but only through FordPass at this time.
+
+**🔮 Will it eventually control those things?**  
+Maybe! Contributions welcome. The `fcsp-api` library *can* support more, but the integration currently prioritizes safe read-only polling.
+
+**💥 Will this break my FCSP?**  
+Probably not — but **don’t hammer it with short polling intervals**.  
+Too-frequent polling can cause the FCSP to act weirdly (e.g., display `CF` fault codes).  
+We recommend a **minimum of 30 seconds** between updates to keep it stable.
 
 ---
 
 ## 👩‍💻 Developer Notes
 
-- Uses `DeviceInfo` to register the **FCSP** and (optionally) the **Inverter**
-- All sensors are tied to their respective device for better UI grouping
-- Time parsing uses Home Assistant’s built-in `dt` helpers
-- Raw inverter firmware is converted to readable **hex string** (`01 02 03…`)
-- Null characters, extra whitespace, and junk are removed from sensor fields
+- `DeviceInfo` is used to register both the **FCSP** and (optionally) the **Inverter**
+- All sensors are grouped with their respective hardware
+- Time formatting uses Home Assistant’s `dt` utilities
+- Inverter firmware is often non-printable — converted into clean hex strings (e.g., `01 1A FF`)
+- Null bytes, whitespace, and junk strings are scrubbed automatically
+- Charger faults (starting with `CF`) are returned as-is in **Status**
 
 ---
 
-## 📜 License & Disclaimer
+## ⚠️ Disclaimer
 
-MIT License — see the `LICENSE` file.
-
-This project is unofficial, unsupported, and likely imperfect. It may break, behave oddly, or do weird stuff.  
-Use at your own risk — and please don’t sue me if it melts your FCSP.
+> This is a personal, unofficial project.  
+> It's unsupported, unpolished, and occasionally weird.  
+> It may break. It may misbehave. It may invite you to play Global Thermonuclear War.  
+> Use at your own risk — and please don’t sue me if your FCSP starts speaking Klingon.
 
 ---
 
 ## 🙏 Thanks
 
-- 🙌 [Eric Pullen](https://github.com/ericpullen) for building `fcsp-api`
-- ❤️ The Home Assistant devs and community
-- 🔌 EV folks everywhere who just want good tools that don’t need cloud
+- ❤️ [Eric Pullen](https://github.com/ericpullen) for building `fcsp-api`
+- 🙌 Home Assistant devs and community
+- 🚗 EV owners making the world cleaner, greener, and just a little bit smarter
 
 ---
 
@@ -117,5 +161,5 @@ Use at your own risk — and please don’t sue me if it melts your FCSP.
 
 Built by **Nikki Gordon-Bloomfield** from [Transport Evolved](https://youtube.com/transportevolved)
 
-- GitHub issues? 👉 [fcsp-local-integration/issues](https://github.com/Aminorjourney/fcsp-local-integration/issues)
+- GitHub: [Issues Page](https://github.com/Aminorjourney/fcsp-local-integration/issues)  
 - Mastodon: [@Aminorjourney@lgbtqia.space](https://lgbtqia.space/@Aminorjourney)

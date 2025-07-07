@@ -1,74 +1,83 @@
-import logging
-from typing import Any, Dict, Optional
+# This file helps configure our integration properly. It uses "Voluptuous".
+# If you sniggered, you're a NERRD.
 
 import voluptuous as vol
-
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
-
 from .const import (
     DOMAIN,
-    DEFAULT_SCAN_INTERVAL,
-    DEFAULT_SHOW_RAW_DATA,
-    DEFAULT_SHOW_LAST_UPDATED,
-    CONF_SHOW_RAW_DATA,
-    CONF_SHOW_LAST_UPDATED,
-    CONF_HOST,
-    CONF_DEVKEY,
-    CONF_PORT,
-    CONF_TIMEOUT,
     CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_HOST,
+    DEFAULT_DEVKEY,
+    CONF_DEBUG,
+    DEFAULT_DEBUG,
 )
 
-_LOGGER = logging.getLogger(__name__)
+# "Input, Stephanie. More input!"
+# (Okay, seriously — this sets up the user config flow for our amazing integration.)
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_HOST, default="192.168.20.65"): str,
-        vol.Required(CONF_DEVKEY, default="0000000000000000"): str,
-        vol.Optional(CONF_PORT, default=443): int,
-        vol.Optional(CONF_TIMEOUT, default=60): int,
-        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
-        vol.Optional(CONF_SHOW_RAW_DATA, default=DEFAULT_SHOW_RAW_DATA): bool,
-        vol.Optional(CONF_SHOW_LAST_UPDATED, default=DEFAULT_SHOW_LAST_UPDATED): bool,
-    }
-)
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Local FCSP.
+    
+    This shows the form to configure the integration in the UI."""
 
-class FCSPConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    # You know, because you're not a binary robot or Johnny Five.
+    # But if you are, 01001000 01100101 01101100 01101100 01101111 (Hello in binary!)
+
     VERSION = 1
 
-    def __init__(self):
-        self._data: Dict[str, Any] = {}
+    async def async_step_user(self, user_input=None) -> FlowResult:
+        """Handle the initial step."""
+        errors = {}
 
-    async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None) -> FlowResult:
         if user_input is not None:
-            # Validate connection here if you want, or defer to setup_entry
-            self._data = user_input
-            return self.async_create_entry(title="Ford Charge Station Pro", data=self._data)
+            if not user_input.get("devkey"):
+                errors["devkey"] = "DevKey required"
+            else:
+                # Sanitize user_input keys here if needed.
+                # No idea what you'd sanitize—but always wash your hands for two full "Happy Birthdays."
+                return self.async_create_entry(
+                    title="Local Ford Charge Station Pro",
+                    data=user_input,
+                )
 
-        return self.async_show_form(step_id="user", data_schema=STEP_USER_DATA_SCHEMA)
+        # Like Vogons, Home Assistant insists forms are properly filled out.
+        # This prevents crashes, even if the input is incomplete—
+        # saving you from a poem about rediscovered cafeteria meatloaf.
 
-    async def async_step_import(self, import_data: Dict[str, Any]) -> FlowResult:
-        self._data = import_data
-        return self.async_create_entry(title="Ford Charge Station Pro", data=self._data)
+        schema = vol.Schema({
+            vol.Required("host", default=DEFAULT_HOST): str,
+            vol.Required("devkey", default=DEFAULT_DEVKEY): str,
+            vol.Required("port", default=443): int,
+            vol.Optional("timeout", default=10): int,
+            vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
+            vol.Optional(CONF_DEBUG, default=DEFAULT_DEBUG): bool,
+        })
 
-class FCSPOptionsFlowHandler(config_entries.OptionsFlow):
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+
+
+# And here’s where you can tweak settings later,
+# if you’re the kind of person who adjusts toaster darkness levels with a micrometer.
+
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for Local FCSP."""
+
     def __init__(self, config_entry):
+        """Initialize options flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input: Optional[Dict[str, Any]] = None) -> FlowResult:
-        options = self.config_entry.options
-
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        data_schema = vol.Schema(
-            {
-                vol.Optional(CONF_SCAN_INTERVAL, default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): int,
-                vol.Optional(CONF_SHOW_RAW_DATA, default=options.get(CONF_SHOW_RAW_DATA, DEFAULT_SHOW_RAW_DATA)): bool,
-                vol.Optional(CONF_SHOW_LAST_UPDATED, default=options.get(CONF_SHOW_LAST_UPDATED, DEFAULT_SHOW_LAST_UPDATED)): bool,
-            }
-        )
+        schema = vol.Schema({
+            vol.Optional(
+                CONF_SCAN_INTERVAL,
+                default=self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            ): int,
+        })
 
-        return self.async_show_form(step_id="init", data_schema=data_schema)
+        return self.async_show_form(step_id="init", data_schema=schema)
