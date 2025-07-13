@@ -14,10 +14,11 @@ DEFAULT_HOST = "192.168.1.100"
 
 # === Config Options ===
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_API_TIMEOUT = "timeout"
 
 # Note: this is in seconds. You *can* go shorter, but it’s not advised.
 # Polling too frequently can make your charger act weird. Ask me how I know.
-DEFAULT_SCAN_INTERVAL = 60  
+DEFAULT_SCAN_INTERVAL = 60
 
 CONF_DEBUG = "debug"
 DEFAULT_DEBUG = True

@@ -7,6 +7,8 @@ from homeassistant.data_entry_flow import FlowResult
 from .const import (
     DOMAIN,
     CONF_SCAN_INTERVAL,
+    CONF_API_TIMEOUT,
+    API_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_HOST,
     DEFAULT_DEVKEY,
@@ -19,10 +21,10 @@ from .const import (
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Local FCSP.
-    
+
     This shows the form to configure the integration in the UI."""
 
-    # You know, because you're not a Binar or Johnny Five.
+    # You know, because you're not a Binar or Johnny Number Five.
     # But if you are, 01001000 01100101 01101100 01101100 01101111 (Hello in binary!)
 
     VERSION = 1
@@ -33,13 +35,21 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             if not user_input.get("devkey"):
-                errors["devkey"] = "DevKey required"
+                # Ideally use a translation key here, not a raw string
+                errors["devkey"] = "invalid_devkey"
             else:
                 # Sanitize user_input keys here if needed.
                 # No idea what you'd sanitize—but always wash your hands for two full "Happy Birthdays."
                 return self.async_create_entry(
                     title="Local Ford Charge Station Pro",
-                    data=user_input,
+                    data={
+                        "host": user_input["host"],
+                        "port": user_input["port"],
+                        "devkey": user_input["devkey"],
+                        CONF_API_TIMEOUT: user_input.get(CONF_API_TIMEOUT, API_TIMEOUT),
+                        CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                        CONF_DEBUG: user_input.get(CONF_DEBUG, DEFAULT_DEBUG),
+                    },
                 )
 
         # Like Vogons, Home Assistant insists forms are properly filled out.
@@ -50,8 +60,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required("host", default=DEFAULT_HOST): str,
             vol.Required("devkey", default=DEFAULT_DEVKEY): str,
             vol.Required("port", default=443): int,
-            vol.Optional("timeout", default=10): int,
-            vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
+            vol.Required(CONF_API_TIMEOUT, default=API_TIMEOUT): int,
+            vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
             vol.Optional(CONF_DEBUG, default=DEFAULT_DEBUG): bool,
         })
 
@@ -76,8 +86,26 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         schema = vol.Schema({
             vol.Optional(
                 CONF_SCAN_INTERVAL,
-                default=self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+                default=self.config_entry.options.get(
+                    CONF_SCAN_INTERVAL,
+                    self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+                )
             ): int,
+            vol.Optional(
+                CONF_API_TIMEOUT,
+                default=self.config_entry.options.get(
+                    CONF_API_TIMEOUT,
+                    self.config_entry.data.get(CONF_API_TIMEOUT, API_TIMEOUT)
+                )
+            ): int,
+            vol.Optional(
+                CONF_DEBUG,
+                default=self.config_entry.options.get(
+                    CONF_DEBUG,
+                    self.config_entry.data.get(CONF_DEBUG, DEFAULT_DEBUG)
+                )
+            ): bool,
         })
 
         return self.async_show_form(step_id="init", data_schema=schema)
+
