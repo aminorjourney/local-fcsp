@@ -1,0 +1,20 @@
+{
+  "config": {
+    "error": {
+      "invalid_devkey": "DevKey is required"
+    },
+    "step": {
+      "user": {
+        "title": "Configure Local FCSP"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Local FCSP Options"
+      }
+    }
+  }
+}
+
