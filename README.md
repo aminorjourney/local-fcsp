@@ -66,7 +66,6 @@ Status, power flow, raw JSON, and inverter metrics — all formatted cleanly for
 | **State**               | Inverter state (Off, Powering Home, etc.)            | `mdi:sine-wave`            |
 | **Last Updated**        | How recently the data changed                        | `mdi:update`               |
 | **Info Raw JSON**       | Cleaned raw JSON for charger/inverter                | `mdi:file-search-outline`  |
-| **Config Status**       | Charger configuration details                        | `mdi:clipboard-check`      |
 | **Network Info**        | IP, MAC, and connectivity data                       | `mdi:access-point-network` |
 | **Device Summary**      | Aggregated FCSP hardware metadata                    | `mdi:information-outline`  |
 
