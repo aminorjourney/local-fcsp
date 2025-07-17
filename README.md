@@ -39,7 +39,7 @@ Status, power flow, raw JSON, and inverter metrics — all formatted cleanly for
 ### ✅ HACS (Recommended)
 
 1. Go to **HACS → Integrations → Custom Repositories**
-2. Add: `https://github.com/Aminorjourney/local-fcsp`
+2. Add: `https://github.com/aminorjourney/local-fcsp`
 3. Set category to **Integration**
 4. Click **Install**
 5. Reboot Home Assistant
