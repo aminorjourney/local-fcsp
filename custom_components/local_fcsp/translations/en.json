@@ -1,7 +1,9 @@
 {
   "config": {
     "error": {
-      "invalid_devkey": "DevKey is required"
+      "invalid_devkey": "DevKey is required",
+      "scan_interval_too_low": "Scan interval must be at least 30 seconds",
+      "api_timeout_too_low": "API timeout must be at least 30 seconds"
     },
     "step": {
       "user": {
@@ -17,4 +19,3 @@
     }
   }
 }
-

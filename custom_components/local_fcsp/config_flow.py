@@ -1,6 +1,3 @@
-# This file helps configure our integration properly. It uses "Voluptuous".
-# If you sniggered, you're a NERRD.
-
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
@@ -14,10 +11,9 @@ from .const import (
     DEFAULT_DEVKEY,
     CONF_DEBUG,
     DEFAULT_DEBUG,
+    MIN_SCAN_INTERVAL,
+    MIN_TIMEOUT,
 )
-
-# "Input, Stephanie. More input!"
-# (Okay, seriously — this sets up the user config flow for our amazing integration.)
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Local FCSP.
@@ -34,20 +30,32 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
+            scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            timeout = user_input.get(CONF_API_TIMEOUT, API_TIMEOUT)
+
             if not user_input.get("devkey"):
                 # Ideally use a translation key here, not a raw string
                 errors["devkey"] = "invalid_devkey"
             else:
                 # Sanitize user_input keys here if needed.
                 # No idea what you'd sanitize—but always wash your hands for two full "Happy Birthdays."
+                pass
+
+            if scan_interval < MIN_SCAN_INTERVAL:
+                errors[CONF_SCAN_INTERVAL] = "scan_interval_too_low"
+
+            if timeout < MIN_TIMEOUT:
+                errors[CONF_API_TIMEOUT] = "api_timeout_too_low"
+
+            if not errors:
                 return self.async_create_entry(
                     title="Local Ford Charge Station Pro",
                     data={
                         "host": user_input["host"],
                         "port": user_input["port"],
                         "devkey": user_input["devkey"],
-                        CONF_API_TIMEOUT: user_input.get(CONF_API_TIMEOUT, API_TIMEOUT),
-                        CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                        CONF_API_TIMEOUT: timeout,
+                        CONF_SCAN_INTERVAL: scan_interval,
                         CONF_DEBUG: user_input.get(CONF_DEBUG, DEFAULT_DEBUG),
                     },
                 )
@@ -80,8 +88,20 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
+        errors = {}
+
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            timeout = user_input.get(CONF_API_TIMEOUT, API_TIMEOUT)
+
+            if scan_interval < MIN_SCAN_INTERVAL:
+                errors[CONF_SCAN_INTERVAL] = "scan_interval_too_low"
+
+            if timeout < MIN_TIMEOUT:
+                errors[CONF_API_TIMEOUT] = "api_timeout_too_low"
+
+            if not errors:
+                return self.async_create_entry(title="", data=user_input)
 
         schema = vol.Schema({
             vol.Optional(
@@ -107,5 +127,4 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             ): bool,
         })
 
-        return self.async_show_form(step_id="init", data_schema=schema)
-
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

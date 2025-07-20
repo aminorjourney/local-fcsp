@@ -1,20 +1,19 @@
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
 from .const import DOMAIN
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
     if not coordinator.home_integration_attached:
-        # If inverter not attached, no sensor needed
         return
 
-    entity = PowerCutSensor(coordinator, entry.entry_id)
-    async_add_entities([entity])
+    async_add_entities([PowerCutBinarySensor(coordinator, entry.entry_id)])
 
 
-class PowerCutSensor(CoordinatorEntity, BinarySensorEntity):
+class PowerCutBinarySensor(CoordinatorEntity, BinarySensorEntity):
     def __init__(self, coordinator, entry_id):
         super().__init__(coordinator)
         self._entry_id = entry_id
@@ -31,6 +30,9 @@ class PowerCutSensor(CoordinatorEntity, BinarySensorEntity):
 
     @property
     def is_on(self):
+        if not self.coordinator.home_integration_attached:
+            return False  # No inverter? No power cut detection.
+
         inverter_info = self.coordinator.data.get("inverter_info") or []
         if not inverter_info:
             return False
@@ -48,3 +50,4 @@ class PowerCutSensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def available(self):
         return self.coordinator.data is not None
+
