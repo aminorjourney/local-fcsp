@@ -1,4 +1,3 @@
-#Let's start by importing everything we need for this integration to work. 
 import asyncio
 import json
 import logging
@@ -16,13 +15,11 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.util import dt as hass_dt
 
-#Not forgetting the fcsp_api library, without which this would be a complete nothing.
-
 from fcsp_api import FCSP
 
 _LOGGER = logging.getLogger(__name__)
 
-#We're cleaning up the data produced by the inverter - currently in Hex.
+# --- Utility Functions ---
 
 def clean_string(value):
     if isinstance(value, str):
@@ -54,8 +51,6 @@ def clean_inverter_info_list(raw_list):
         cleaned.append(cleaned_item)
     return cleaned
 
-#Since the charger doesn't differentiate between power in and power out, here's some logic to help that, using data from both the charger and the home integration system. Obviously, it only works if the HIS is installed. 
-
 def interpret_charger_status(charger_info, inverter_info):
     if not charger_info:
         return None
@@ -83,9 +78,6 @@ def interpret_charger_status(charger_info, inverter_info):
         return f"Charger Fault ({state})"
     return state or "Unknown"
 
-#...and if the inverter is installed, this turns the numeric state codes into word states
-
-
 def interpret_inverter_state(inverter_info):
     if inverter_info and len(inverter_info) > 0:
         try:
@@ -108,9 +100,6 @@ def dump_json(data):
     except Exception as e:
         _LOGGER.error(f"Error dumping JSON data: {e}")
         return "Error dumping JSON"
-
-#Figure out how FRESH the data is. Mmmm. Freshness. 
-
 
 def format_elapsed_time(dt_obj):
     if not isinstance(dt_obj, datetime):
@@ -137,9 +126,7 @@ def format_elapsed_time(dt_obj):
         _LOGGER.error(f"Error formatting elapsed time: {e}")
         return None
 
-# Providing HA with the sensors it needs to see the world. 
-# In order, defined as:
-# (Name, value function or key, unit, data source, icon, debug_only, device type, enabled_by_default)
+# --- Sensors definition ---
 
 SENSORS = [
     ("Info", lambda data: "See Attributes", None, "charger_info", "mdi:information", False, "charge_station", True),
@@ -150,7 +137,6 @@ SENSORS = [
     ("Info Raw JSON", lambda data: "See Attributes", None, "charger_info", "mdi:file-search-outline", True, "charge_station", False),
     ("Info Raw JSON", lambda data: "See Attributes", None, "inverter_info", "mdi:file-search-outline", True, "home_integration", False),
 
-    # Changed names here to "Last Updated"
     ("Last Updated", None, None, "charger_info", "mdi:timer", False, "charge_station", True),
     ("Last Updated", None, None, "inverter_info", "mdi:timer", False, "home_integration", True),
 
@@ -159,46 +145,10 @@ SENSORS = [
     ("Ford Charge Station Pro Device Summary", dump_json, None, "device_summary", "mdi:information-outline", True, None, False),
 ]
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    data = hass.data[DOMAIN][entry.entry_id]
-    fcsp = data["fcsp"]
-    debug = entry.options.get("debug", True)
-    scan_interval_seconds = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    scan_interval = timedelta(seconds=scan_interval_seconds)
-
-    coordinator = FCSPDataUpdateCoordinator(hass, fcsp, scan_interval)
-    try:
-        await asyncio.wait_for(coordinator.async_config_entry_first_refresh(), timeout=60)
-    except asyncio.TimeoutError:
-        _LOGGER.error("Timeout while waiting for initial data refresh from FCSP.")
-        raise
-
-    entities = []
-    for name, key_or_func, unit, source, icon, debug_only, device_key, enabled_default in SENSORS:
-        if debug_only and not debug:
-            continue
-        if device_key == "home_integration" and not coordinator.home_integration_attached:
-            continue
-        entities.append(
-            LocalFCSPSensor(
-                name=name,
-                key_or_func=key_or_func,
-                unit=unit,
-                source=source,
-                coordinator=coordinator,
-                icon=icon,
-                device_key=device_key,
-                entry_id=entry.entry_id,
-                hass=hass,
-                enabled_default=enabled_default,
-            )
-        )
-    async_add_entities(entities, True)
-
-#Give Home Assistant periodic updates like that nasty girl in class who won't shut up gossiping about your friend. 
+# --- Coordinator class with cache support ---
 
 class FCSPDataUpdateCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, fcsp: FCSP, scan_interval: timedelta):
+    def __init__(self, hass: HomeAssistant, fcsp: FCSP, scan_interval: timedelta, cache=None, cache_store=None):
         super().__init__(
             hass,
             _LOGGER,
@@ -206,8 +156,10 @@ class FCSPDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=scan_interval,
         )
         self._fcsp = fcsp
+        self._cache_store = cache_store
         self.home_integration_attached = False
         self._last_update_times = {}
+        self.data = cache or {}
 
     async def _async_update_data(self):
         try:
@@ -224,15 +176,13 @@ class FCSPDataUpdateCoordinator(DataUpdateCoordinator):
 
             now = hass_dt.utcnow()
 
-            previous_charger = self.data.get("charger_info") if self.data else None
-            if charger_info != previous_charger:
+            if charger_info != (self.data.get("charger_info") if self.data else None):
                 self._last_update_times["charge_station"] = now
 
-            previous_inverter = self.data.get("inverter_info") if self.data else None
-            if inverter_info != previous_inverter:
+            if inverter_info != (self.data.get("inverter_info") if self.data else None):
                 self._last_update_times["home_integration"] = now
 
-            return {
+            fresh_data = {
                 "charger_info": charger_info,
                 "inverter_info": inverter_info,
                 "config_status": config_status,
@@ -240,11 +190,22 @@ class FCSPDataUpdateCoordinator(DataUpdateCoordinator):
                 "status": status,
                 "device_summary": device_summary,
             }
+
+            # Save fresh data to cache
+            if self._cache_store:
+                await self._cache_store.save(fresh_data)
+
+            return fresh_data
+
         except Exception as err:
             _LOGGER.error(f"Error communicating with FCSP: {err}")
+            # Fallback to cache if possible
+            if self.data:
+                _LOGGER.warning("Using cached data due to update failure")
+                return self.data
             raise UpdateFailed(f"FCSP update failed: {err}") from err
 
-#Figuring out which sensor belongs with which thing. It's how we break out the different entities and sensors properly. 
+# --- Sensor entity class ---
 
 class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
     def __init__(
@@ -276,7 +237,7 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
         self._attr_has_entity_name = True
         self._attr_device_info = self._get_device_info()
         self._attr_entity_registry_enabled_default = enabled_default
-        self._refresh_task = None  # will hold the update timer task
+        self._refresh_task = None
 
     def _get_device_info(self):
         if self._device_key == "charge_station":
@@ -298,8 +259,6 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
                 model=model,
             )
         return None
-
-#This is basically for figuring out the extra "attributes" and making sure they go to the right Device/Entity.
 
     @property
     def extra_state_attributes(self):
@@ -355,7 +314,6 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
                 return {}
 
         if self._attr_name == "Last Updated":
-            # Hey, do me a favor and ignore attributes for last-updated. That's all we want. LAST UPDATED. It's like Ronseal. It does exactly what it says on the tin. 
             return {}
 
         if self._attr_name in {
@@ -371,8 +329,6 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
     @property
     def available(self):
         return self.coordinator.data is not None
-
-#Humans need better interpretability, and according to my therapist, this is how we do it. 
 
     @property
     def native_value(self):
@@ -421,7 +377,7 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
-        # check every sixty seconds maybe? 
+        # "Last Updated" sensors update every 60 seconds to keep freshness info current
         if self._attr_name == "Last Updated":
             self._refresh_task = self.hass.loop.create_task(self._refresh_loop())
 
@@ -441,3 +397,65 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
                 self.async_write_ha_state()
         except asyncio.CancelledError:
             pass
+
+# --- Entry Setup ---
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+    existing_coordinator = hass.data[DOMAIN][entry.entry_id]
+    fcsp = existing_coordinator._fcsp
+
+    # Access cache and cached_data from the existing coordinator
+    cache = getattr(existing_coordinator, "_cache_store", None)
+    cached_data = getattr(existing_coordinator, "data", None)
+
+    scan_interval_seconds = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    scan_interval = timedelta(seconds=scan_interval_seconds)
+    debug = entry.options.get("debug", True)
+
+    # Create a new coordinator with fresh settings or reuse existing cached data
+    coordinator = FCSPDataUpdateCoordinator(
+        hass=hass,
+        fcsp=fcsp,
+        scan_interval=scan_interval,
+        cache=cached_data,
+        cache_store=cache,
+    )
+
+    try:
+        await asyncio.wait_for(coordinator.async_config_entry_first_refresh(), timeout=60)
+    except asyncio.TimeoutError:
+        _LOGGER.error("Timeout while waiting for initial data refresh from FCSP.")
+        raise
+
+    entities = []
+    for (
+        name,
+        key_or_func,
+        unit,
+        source,
+        icon,
+        debug_only,
+        device_key,
+        enabled_default,
+    ) in SENSORS:
+        if debug_only and not debug:
+            continue
+        if device_key == "home_integration" and not coordinator.home_integration_attached:
+            continue
+        entities.append(
+            LocalFCSPSensor(
+                name=name,
+                key_or_func=key_or_func,
+                unit=unit,
+                source=source,
+                coordinator=coordinator,
+                icon=icon,
+                device_key=device_key,
+                entry_id=entry.entry_id,
+                hass=hass,
+                enabled_default=enabled_default,
+            )
+        )
+
+    async_add_entities(entities, True)
+
