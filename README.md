@@ -14,6 +14,14 @@ Status, power flow, raw JSON, and inverter metrics — all formatted cleanly for
 
 ---
 
+## 🆕 What's New in v0.2.4
+
+- **Power Cut Detection**: Added a binary sensor to monitor grid outages (Home Integration only).
+- **Cache Support**: Speeds up startup and improves offline resilience.
+- **HACS Bug Fixes**: Fixed critical bugs for smoother installation and operation.
+___
+
+
 ## 🛠️ Features
 
 - 🔌 Detects vehicle connection & charging status  
@@ -22,6 +30,7 @@ Status, power flow, raw JSON, and inverter metrics — all formatted cleanly for
 - 🕒 “Last Updated” sensor shows time since last data change (e.g., _“2 minutes ago”_)  
 - 🧪 Optional debug sensors with cleaned JSON output  
 - 📦 MDI icons and device-level grouping for clean dashboards
+- ** NEW ** Integrated power cut sensor based on Integration Data **Requires Home Integration V2G System**
 
 ---
 
