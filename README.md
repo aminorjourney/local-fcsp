@@ -1,4 +1,4 @@
-# ⚡ Ford Charge Station Pro Local for Home Assistant (`local_fcsp`)
+# ⚡ Ford Charge Station Pro Local for Home Assistant (`local-fcsp`)
 
 **Author:** Nikki Gordon-Bloomfield  
 **Based on:** [Eric Pullen’s `fcsp-api`](https://github.com/ericpullen/fcsp-api)
@@ -19,7 +19,7 @@ Status, power flow, raw JSON, and inverter metrics — all formatted cleanly for
 - 🔌 Detects vehicle connection & charging status  
 - ⚡ Shows Intelligent Backup Power (IBP) state  
 - 🏠 Displays inverter details if installed  
-- 🕒 “Last Updated” sensor shows time since last data change (e.g., _“2 minutes ago”_)  
+- 🕒 “Last Updated” sensor shows time since last data change
 - 🧪 Optional debug sensors with cleaned JSON output  
 - 📦 MDI icons and device-level grouping for clean dashboards
 
@@ -46,7 +46,7 @@ Status, power flow, raw JSON, and inverter metrics — all formatted cleanly for
 
 ### 📁 Manual Installation
 
-1. Copy the `fcsp_local/` folder into `config/custom_components/`
+1. Copy the `local_fcsp/` folder into `config/custom_components/`
 2. Restart Home Assistant
 3. Go to **Settings → Devices & Services → Add Integration**
 4. Search for **“Ford Charge Station Pro Local”** and follow the setup wizard
@@ -65,7 +65,7 @@ Status, power flow, raw JSON, and inverter metrics — all formatted cleanly for
 | **Status**              | Charger status (Idle, Charging, Powering Home, etc.) | `mdi:ev-station`           |
 | **State**               | Inverter state (Off, Powering Home, etc.)            | `mdi:sine-wave`            |
 | **Last Updated**        | How recently the data changed                        | `mdi:update`               |
-| **Info Raw JSON**       | Cleaned raw JSON for charger/inverter                | `mdi:file-search-outline`  |
+| **Raw Data**            | Cleaned raw JSON for charger/inverter                | `mdi:file-search-outline`  |
 | **Network Info**        | IP, MAC, and connectivity data                       | `mdi:access-point-network` |
 | **Device Summary**      | Aggregated FCSP hardware metadata                    | `mdi:information-outline`  |
 

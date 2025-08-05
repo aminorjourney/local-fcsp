@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.3.0] - 2025-08-04
+
+### Added
+
+- **User-configurable date stamps**  
+  Last updated timestamps now display in a human-readable format. Users can select between 12-hour or 24-hour clocks via the integration config.
+
+- **New binary sensor logic for power cut detection**  
+  Previous versions failed to reliably populate this sensor due to vague polling logic. This version introduces more explicit handling and correct data sourcing.
+
+- **Version reporting for Home Integration System**  
+  Inverter firmware/software revision is now parsed from its hex string and displayed in `Major.Minor.Patch` format (e.g., `1.1.36`).  
+  This version string appears in `Home Integration System > Info > Firmware`, while the original cleaned hex string remains in `Home Integration System > Raw Data > Firmware (Hex)`.
+
+### Changed
+
+- **Raw info.json reporting renamed**  
+  Sensors for raw inverter and charger data now use the label `Raw Data` for clarity and consistency.
+
+- **V2H attached flag renamed**  
+  In `Charger Info`, the `Home Integration Attached` flag is now labeled `V2H Attached`.
+
+### Fixed
+
+- **Fallback status handling for older FCSP firmware**  
+  Older FCSP builds use text-based inverter status rather than numerical codes, breaking compatibility with power cut and status sensors.  
+  `coordinator.py` now includes a fallback to support both data formats. This improves compatibility with owners that receive FCSP replacements running outdated software awaiting OTA updates.
+
+### Still In Progress / Known Issues
+
+- **Standalone FCSP (no Home Integration System) setup**  
+  Dummy values may still appear for Home Integration sensors on systems without an inverter attached.  
+  Future updates will include logic to detect and suppress known placeholder values or restructure the setup flow accordingly.
+
+### Installation Instructions
+
+- **Sensor cleanup required after update**  
+  Updating from earlier versions may leave orphaned or renamed sensors in Home Assistant.  
+  To resolve:
+  1. Manually remove affected entities from the UI; or  
+  2. Remove and re-add the integration via the UI (recommended, especially when using new config options).
+
+
 ## [v0.2.4] - 2025-07-19
 
 ### Added

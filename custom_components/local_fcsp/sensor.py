@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import timedelta, datetime
 
-from .const import DOMAIN, DEFAULT_SCAN_INTERVAL, CONF_SCAN_INTERVAL
+from .const import DOMAIN, DEFAULT_SCAN_INTERVAL, CONF_SCAN_INTERVAL, CONF_TIME_FORMAT, DEFAULT_TIME_FORMAT, TIME_FORMAT_24H, TIME_FORMAT_12H
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import (
@@ -15,134 +15,40 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.util import dt as hass_dt
 
+from .coordinator import (
+    normalize_inverter_states,
+    clean_string,
+    firmware_to_hex_string,
+    clean_inverter_info_list,
+    interpret_charger_status,
+    interpret_inverter_state,
+    dump_json,
+    format_elapsed_time,
+)
+
 from fcsp_api import FCSP
 
 _LOGGER = logging.getLogger(__name__)
 
 # --- Utility Functions ---
 
-def clean_string(value):
-    if isinstance(value, str):
-        return value.replace("\x00", "").strip()
-    return value
-
-def firmware_to_hex_string(firmware_str):
-    try:
-        firmware_bytes = firmware_str.encode("latin1").decode("unicode_escape").encode("latin1")
-        return " ".join(f"{b:02X}" for b in firmware_bytes)
-    except Exception as e:
-        _LOGGER.warning(f"Error converting firmware to hex: {e}")
-        return clean_string(firmware_str)
-
-def clean_inverter_info_list(raw_list):
-    cleaned = []
-    for item in raw_list:
-        if not isinstance(item, dict):
-            cleaned.append(item)
-            continue
-        cleaned_item = {}
-        for k, v in item.items():
-            if k == "firmware" and isinstance(v, str):
-                cleaned_item[k] = firmware_to_hex_string(v)
-            elif isinstance(v, str):
-                cleaned_item[k] = clean_string(v)
-            else:
-                cleaned_item[k] = v
-        cleaned.append(cleaned_item)
-    return cleaned
-
-def interpret_charger_status(charger_info, inverter_info):
-    if not charger_info:
-        return None
-    state = charger_info.get("state")
-    if state == "CS00":
-        return "Idle"
-    elif state == "CS01":
-        return "Vehicle Connected"
-    elif state == "CS02":
-        if inverter_info and len(inverter_info) > 0:
-            try:
-                inv_state = int(inverter_info[0].get("state"))
-            except Exception:
-                inv_state = inverter_info[0].get("state")
-            if inv_state == 0:
-                return "Charging Vehicle"
-            elif inv_state == 1:
-                return "Preparing To Power Home"
-            elif inv_state == 5:
-                return "Powering Home"
-            else:
-                return "Power Transferring"
-        return "Power Transferring"
-    if state and state.startswith("CF"):
-        return f"Charger Fault ({state})"
-    return state or "Unknown"
-
-def interpret_inverter_state(inverter_info):
-    if inverter_info and len(inverter_info) > 0:
-        try:
-            state_num = int(inverter_info[0].get("state"))
-        except Exception:
-            state_num = inverter_info[0].get("state")
-        if state_num == 0:
-            return "Inverter Off"
-        elif state_num == 1:
-            return "Preparing To Power Home"
-        elif state_num == 5:
-            return "Powering Home"
-        else:
-            return "Unknown State"
-    return None
-
-def dump_json(data):
-    try:
-        return json.dumps(data, indent=2)
-    except Exception as e:
-        _LOGGER.error(f"Error dumping JSON data: {e}")
-        return "Error dumping JSON"
-
-def format_elapsed_time(dt_obj):
-    if not isinstance(dt_obj, datetime):
-        return None
-    try:
-        now = hass_dt.utcnow()
-        diff = now - hass_dt.as_utc(dt_obj)
-        seconds = int(diff.total_seconds())
-
-        if seconds < 0:
-            return "just now"
-        if seconds < 60:
-            return f"{seconds} second{'s' if seconds != 1 else ''} ago"
-        elif seconds < 3600:
-            minutes = int(seconds / 60)
-            return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-        elif seconds < 86400:
-            hours = int(seconds / 3600)
-            return f"{hours} hour{'s' if hours != 1 else ''} ago"
-        else:
-            days = int(seconds / 86400)
-            return f"{days} day{'s' if days != 1 else ''} ago"
-    except Exception as e:
-        _LOGGER.error(f"Error formatting elapsed time: {e}")
-        return None
-
-# --- Sensors definition ---
+# We removed the utility functions and cast banish. They now live in the coordinator.py. Roll for Initiative if you disagree. 
 
 SENSORS = [
-    ("Info", lambda data: "See Attributes", None, "charger_info", "mdi:information", False, "charge_station", True),
+    ("Info", lambda data: "Click To View", None, "charger_info", "mdi:information", False, "charge_station", True),
     ("Status", None, None, None, "mdi:ev-plug-ccs1", False, "charge_station", True),
-    ("Info", lambda data: "See Attributes", None, "inverter_info", "mdi:information", False, "home_integration", True),
+    ("Info", lambda data: "Click To View", None, "inverter_info", "mdi:information", False, "home_integration", True),
     ("Status", lambda data: interpret_inverter_state(data), None, "inverter_info", "mdi:sine-wave", False, "home_integration", True),
 
-    ("Info Raw JSON", lambda data: "See Attributes", None, "charger_info", "mdi:file-search-outline", True, "charge_station", False),
-    ("Info Raw JSON", lambda data: "See Attributes", None, "inverter_info", "mdi:file-search-outline", True, "home_integration", False),
+    ("Raw Data", lambda data: "See Attributes", None, "charger_info", "mdi:file-search-outline", True, "charge_station", False),
+    ("Raw Data", lambda data: "See Attributes", None, "inverter_info", "mdi:file-search-outline", True, "home_integration", False),
 
     ("Last Updated", None, None, "charger_info", "mdi:timer", False, "charge_station", True),
     ("Last Updated", None, None, "inverter_info", "mdi:timer", False, "home_integration", True),
 
-    ("Ford Charge Station Pro Config Status", dump_json, None, "config_status", "mdi:clipboard-check", True, None, False),
-    ("Ford Charge Station Pro Network Info", dump_json, None, "network_info", "mdi:access-point-network", True, None, False),
-    ("Ford Charge Station Pro Device Summary", dump_json, None, "device_summary", "mdi:information-outline", True, None, False),
+    ("FCSP Config Status", dump_json, None, "config_status", "mdi:clipboard-check", True, None, False),
+    ("FCSP Network Info", dump_json, None, "network_info", "mdi:access-point-network", True, None, False),
+    ("FCSP Device Summary", dump_json, None, "device_summary", "mdi:information-outline", True, None, False),
 ]
 
 # --- Coordinator class with cache support ---
@@ -165,14 +71,17 @@ class FCSPDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self._fcsp.connect)
+
             charger_info = await loop.run_in_executor(None, self._fcsp.get_charger_info)
-            inverter_info = await loop.run_in_executor(None, self._fcsp.get_inverter_info)
-            inverter_info = clean_inverter_info_list(inverter_info or [])
-            self.home_integration_attached = bool(inverter_info and len(inverter_info) > 0)
             config_status = await loop.run_in_executor(None, self._fcsp.get_config_status)
             network_info = await loop.run_in_executor(None, self._fcsp.get_network_info)
             status = await loop.run_in_executor(None, self._fcsp.get_status)
             device_summary = await loop.run_in_executor(None, self._fcsp.get_device_summary)
+            inverter_info = await loop.run_in_executor(None, self._fcsp.get_inverter_info)
+            inverter_info = normalize_inverter_states(inverter_info or [])
+            inverter_info = clean_inverter_info_list(inverter_info or [])
+
+            self.home_integration_attached = bool(inverter_info and len(inverter_info) > 0)
 
             now = hass_dt.utcnow()
 
@@ -191,7 +100,6 @@ class FCSPDataUpdateCoordinator(DataUpdateCoordinator):
                 "device_summary": device_summary,
             }
 
-            # Save fresh data to cache
             if self._cache_store:
                 await self._cache_store.save(fresh_data)
 
@@ -262,7 +170,7 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        if self._attr_name == "Info Raw JSON":
+        if self._attr_name == "Raw Data":
             source_data = self.coordinator.data.get(self._source)
             if self._device_key == "home_integration":
                 if isinstance(source_data, list) and len(source_data) > 0:
@@ -273,7 +181,7 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
                         "serial_number": clean_string(inv.get("slno")),
                         "name": clean_string(inv.get("name")),
                         "state": inv.get("state"),
-                        "firmware": inv.get("firmware"),
+                        "firmware (hex)": inv.get("firmware_hex"), #cleaned version in hexadecimal
                     }
                 return {}
             elif self._device_key == "charge_station":
@@ -282,20 +190,18 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
         if self._attr_name == "Info":
             if self._device_key == "charge_station":
                 source_data = self.coordinator.data.get("charger_info")
-                if source_data:
-                    status_data = self.coordinator.data.get("status") or {}
-                    max_amps = status_data.get("max_amps")
-                    return {
-                        "model_name": source_data.get("vHw"),
-                        "model_number": source_data.get("catalogNo"),
-                        "serial_number": source_data.get("traceNo"),
-                        "software_version": source_data.get("vWiFi"),
-                        "ip_address": source_data.get("ipAddr"),
-                        "hardware_current_limit": f"{max_amps} A" if max_amps else "Unknown",
-                        "home_integration_system_attached": bool(source_data.get("inverter", 0)),
-                    }
-                return {}
-
+                status_data = self.coordinator.data.get("status") or {}
+                max_amps = status_data.get("max_amps")
+                inverter_count = status_data.get("inverter_count", 0)
+                return {
+                    "model_name": source_data.get("vHw"),
+                    "model_number": source_data.get("catalogNo"),
+                    "serial_number": source_data.get("traceNo"),
+                    "software_version": source_data.get("vWiFi"),
+                    "ip_address": source_data.get("ipAddr"),
+                    "hardware_current_limit": f"{max_amps} A" if max_amps else "Unknown",
+                    "V2G System Attached": bool(inverter_count),
+                }
             elif self._device_key == "home_integration":
                 source_data = self.coordinator.data.get("inverter_info")
                 if source_data and isinstance(source_data, list) and len(source_data) > 0:
@@ -310,6 +216,7 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
                         "model": clean_string(inv.get("model")),
                         "serial_number": clean_string(inv.get("slno")),
                         "inverters_connected": inverter_count,
+                        "firmware": inv.get("firmware"), #human-readable software version
                     }
                 return {}
 
@@ -336,7 +243,7 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
         if not data:
             return None
 
-        if self._attr_name in ("Info", "Info Raw JSON"):
+        if self._attr_name in ("Info", "Raw Data"):
             return "See Attributes"
 
         if self._attr_name == "Status" and self._device_key == "charge_station":
@@ -355,13 +262,15 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
         if self._attr_name == "Last Updated":
             last_update_dt = self.coordinator._last_update_times.get(self._device_key)
             if last_update_dt is None:
-                return "Unknown"
-            formatted = format_elapsed_time(last_update_dt)
-            return formatted or "Unknown"
+               return "Unknown"
+            local_dt = hass_dt.as_local(last_update_dt)
 
-        source_data = data.get(self._source)
-        if source_data is None:
-            return None
+            # Fetch preferred format (defaults to 12h if not found)
+            fmt_pref = self._hass.config_entries.async_get_entry(self._entry_id).options.get(CONF_TIME_FORMAT, DEFAULT_TIME_FORMAT)
+            fmt_str = TIME_FORMAT_24H if fmt_pref == "24h" else TIME_FORMAT_12H
+            return local_dt.strftime(fmt_str)
+
+        source_data = self.coordinator.data.get(self._source)
 
         if callable(self._key_or_func):
             try:
@@ -374,6 +283,7 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
 
         self._attributes = {}
         return value
+
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
@@ -458,4 +368,3 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         )
 
     async_add_entities(entities, True)
-

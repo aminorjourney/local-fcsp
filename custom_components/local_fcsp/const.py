@@ -34,3 +34,12 @@ DEFAULT_NAME = "Ford Charge Station Pro"
 # === Device Info ===
 ATTR_MANUFACTURER = "Siemens"  # Yep. Siemens.
 ATTR_MODEL = "Charge Station Pro"
+
+# === Date Time =====
+
+CONF_TIME_FORMAT = "time_format"
+DEFAULT_TIME_FORMAT = "12h"
+TIME_FORMAT_OPTIONS = ["12h", "24h"]
+
+TIME_FORMAT_12H = "%b %-d, %Y at %-I:%M %p"
+TIME_FORMAT_24H = "%b %-d, %Y at %H:%M"

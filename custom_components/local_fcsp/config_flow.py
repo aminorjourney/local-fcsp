@@ -13,6 +13,9 @@ from .const import (
     DEFAULT_DEBUG,
     MIN_SCAN_INTERVAL,
     MIN_TIMEOUT,
+    CONF_TIME_FORMAT, 
+    DEFAULT_TIME_FORMAT, 
+    TIME_FORMAT_OPTIONS,
 )
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -57,6 +60,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_API_TIMEOUT: timeout,
                         CONF_SCAN_INTERVAL: scan_interval,
                         CONF_DEBUG: user_input.get(CONF_DEBUG, DEFAULT_DEBUG),
+                        CONF_TIME_FORMAT: user_input.get(CONF_TIME_FORMAT, DEFAULT_TIME_FORMAT),
                     },
                 )
 
@@ -71,6 +75,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_API_TIMEOUT, default=API_TIMEOUT): int,
             vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
             vol.Optional(CONF_DEBUG, default=DEFAULT_DEBUG): bool,
+            vol.Optional(CONF_TIME_FORMAT, default=DEFAULT_TIME_FORMAT): vol.In(TIME_FORMAT_OPTIONS),
         })
 
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
@@ -111,6 +116,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
                 )
             ): int,
+            vol.Optional(
+                CONF_TIME_FORMAT,
+                default=self.config_entry.options.get(
+                    CONF_TIME_FORMAT,
+                    self.config_entry.data.get(CONF_TIME_FORMAT, DEFAULT_TIME_FORMAT)
+                )
+            ): vol.In(TIME_FORMAT_OPTIONS),
+
             vol.Optional(
                 CONF_API_TIMEOUT,
                 default=self.config_entry.options.get(

@@ -1,7 +1,7 @@
 {
   "name": "Local Ford Charge Station Pro",
   "domain": "local_fcsp",
-  "homeassistant": "2025.7.0",
+  "homeassistant": "2025.8.0",
   "hacs_min_version": "1.17.0",
   "country": "US",
   "codeowners": ["@aminorjourney"],
