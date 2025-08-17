@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.3.1] - 2025-08-16
+
+### Changed
+
+- **Refactoring, Simplifying Binary Sensor, Improving Reliability **
+  The previous binary_sensor.py for power cut detection wasn't reliably working, so it's now been refactored to push most of the detection logic into coordinator.py, reducing code complexity in binary_sensor.py and (at least in testing) far more reliably detecting a power cut.  Since this is only important if you have a Home Integration System installed, it might not be a big deal for you - but it was for me ;) 
+  
+### Still In Progress / Known Issues
+
+- **Standalone FCSP (no Home Integration System) setup**  
+  There's still a massive bug with the config flow that can result in 'phantom' home integration systems appearing even if you don't have one attached to your charge station pro. Hopefully now I've squished the Binary sensor issues for Power Cut detection... I can start working on this ;)
+
+### Installation Instructions 
+
+- **Version 0.3.0 **
+  Updating from v 0.3.0 should be possible from HACS or manual drag and drop (see installation instructions). 
+
+- **Version 0.2.x or Older **  
+  Updating from earlier versions may leave orphaned or renamed sensors in Home Assistant.  
+  To resolve:
+  1. Manually remove affected entities from the UI; or  
+  2. Remove and re-add the integration via the UI (recommended, especially when using new config options).
+
 ## [v0.3.0] - 2025-08-04
 
 ### Added

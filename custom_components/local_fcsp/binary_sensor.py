@@ -2,28 +2,15 @@ import logging
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-
+from homeassistant.core import callback
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up the PowerCutBinarySensor from a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    _LOGGER.debug("Adding PowerCutBinarySensor entity...")
-    async_add_entities([PowerCutBinarySensor(coordinator, entry.entry_id)])
-
-
 class PowerCutBinarySensor(CoordinatorEntity, BinarySensorEntity):
-    """
-    Binary sensor to detect a power cut using the Home Integration System.
-
-    This sensor is only available if a Home Integration System is attached.
-    It interprets inverter state values to determine whether grid power is down.
-    """
+    """Binary sensor to detect a power cut using the FCSP inverter."""
 
     def __init__(self, coordinator, entry_id):
-        """Initialize the Power Cut sensor."""
         super().__init__(coordinator)
         self._entry_id = entry_id
         self._attr_name = "Power Cut"
@@ -38,50 +25,31 @@ class PowerCutBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._attr_icon_off = "mdi:transmission-tower"
 
     @property
-    def available(self):
-        """
-        Return True if Home Integration is attached and data is present.
-
-        If there's no inverter attached, this sensor should not be exposed.
-        """
-        _LOGGER.debug(f"PowerCutBinarySensor available check: coordinator.home_integration_attached={self.coordinator.home_integration_attached}")
-        available = self.coordinator.home_integration_attached and bool(self.coordinator.data)
-        _LOGGER.debug(f"PowerCutBinarySensor available: {available}")
-        return available
+    def is_on(self) -> bool:
+        """Return True if a power cut is currently active."""
+        val = self.coordinator.is_power_cut_active()
+        _LOGGER.debug("PowerCutBinarySensor.is_on called: %s", val)
+        return val
 
     @property
-    def is_on(self):
-        """
-        Return True if a power cut is detected.
-
-        A power cut is inferred when the inverter reports state 1 or 5.
-        """
-        _LOGGER.debug(f"PowerCutBinarySensor is_on check: home_integration_attached={self.coordinator.home_integration_attached}")
-
-        if not self.coordinator.home_integration_attached:
-            _LOGGER.debug("PowerCutBinarySensor is_off: No inverter attached.")
-            return False
-
-        inverter_info = self.coordinator.data.get("inverter_info") or []
-        _LOGGER.debug(f"Inverter info for PowerCutBinarySensor: {inverter_info}")
-
-        if not inverter_info:
-            _LOGGER.debug("PowerCutBinarySensor is_off: inverter_info empty or missing.")
-            return False
-
-        try:
-            state = int(inverter_info[0].get("state"))
-        except (ValueError, TypeError, IndexError) as e:
-            _LOGGER.warning(f"PowerCutBinarySensor error parsing inverter state: {e}")
-            return False
-
-        # State 1 and 5 = grid is down => power cut
-        power_cut = state in (1, 5)
-        _LOGGER.debug(f"PowerCutBinarySensor is_on evaluated as: {power_cut} (state={state})")
-        return power_cut
-
-    @property
-    def icon(self):
+    def icon(self) -> str:
         """Return the appropriate icon based on power cut state."""
         return self._attr_icon_on if self.is_on else self._attr_icon_off
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Respond to data updates from the coordinator."""
+        self.async_write_ha_state()
+
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Set up the Power Cut binary sensor from a config entry."""
+    coordinator = hass.data[DOMAIN].get(entry.entry_id)
+    if not coordinator:
+        _LOGGER.error("No coordinator found for entry %s", entry.entry_id)
+        return
+
+    async_add_entities(
+        [PowerCutBinarySensor(coordinator, entry.entry_id)],
+        update_before_add=True,
+    )

@@ -43,3 +43,6 @@ TIME_FORMAT_OPTIONS = ["12h", "24h"]
 
 TIME_FORMAT_12H = "%b %-d, %Y at %-I:%M %p"
 TIME_FORMAT_24H = "%b %-d, %Y at %H:%M"
+
+# Dev/testing flag — set True to allow fake inverter states for testing
+DEV_MODE = True

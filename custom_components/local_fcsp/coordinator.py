@@ -9,17 +9,8 @@ _LOGGER = logging.getLogger(__name__)
 # --- Data Cleaning Functions ---
 
 def normalize_inverter_states(inverter_info_list):
-    """
-    Convert legacy inverter string states to numeric codes.
-
-    Earlier FCSP firmware versions use string states instead of numbers
-    for inverter status. This function normalizes those strings to
-    their corresponding numeric codes for compatibility.
-    """
-    str_to_num = {
-        "not ready": 0,
-        "inverter active": 5,
-    }
+    """Convert legacy inverter string states to numeric codes for consistency."""
+    str_to_num = {"not ready": 0, "inverter active": 5}
     for inv in inverter_info_list:
         state = inv.get("state")
         if isinstance(state, str):
@@ -27,48 +18,33 @@ def normalize_inverter_states(inverter_info_list):
             inv["state"] = str_to_num.get(normalized, state)
     return inverter_info_list
 
-
 def clean_string(value):
-    """
-    Remove null characters and strip whitespace from strings.
-
-    Returns cleaned string or original value if not a string.
-    """
+    """Remove null characters and whitespace from strings."""
     if isinstance(value, str):
         return value.replace("\x00", "").strip()
     return value
 
-
 def firmware_to_hex_string(firmware_str):
-    """Convert cleaned firmware string to raw hexadecimal duplets"""
+    """Convert firmware string to raw hexadecimal representation."""
     try:
         firmware_bytes = firmware_str.encode("latin1").decode("unicode_escape").encode("latin1")
         return " ".join(f"{b:02X}" for b in firmware_bytes)
     except Exception as e:
         _LOGGER.warning(f"Error converting firmware to hex: {e}")
         return clean_string(firmware_str)
-        
-        
+
 def firmware_string_to_version(firmware_str):
-    """Convert escaped firmware string to a major.minor.patch version string."""
+    """Convert firmware string to major.minor.patch format."""
     try:
         firmware_bytes = firmware_str.encode("latin1").decode("unicode_escape").encode("latin1")
         if len(firmware_bytes) >= 3:
             return f"{firmware_bytes[0]}.{firmware_bytes[1]}.{firmware_bytes[2]}"
-        else:
-            _LOGGER.warning("Firmware string too short to parse version: %s", firmware_str)
     except Exception as e:
-        _LOGGER.warning(f"Error parsing firmware version from string: {e}")
-    return clean_string(firmware_str)  # fallback
-
+        _LOGGER.warning(f"Error parsing firmware version: {e}")
+    return clean_string(firmware_str)
 
 def clean_inverter_info_list(raw_list):
-    """
-    Clean inverter info dicts to include:
-    - 'firmware' as maj.min.patch string
-    - 'firmware_hex' as hex string
-    Clean all string values by removing nulls and whitespace.
-    """
+    """Clean inverter info dicts: normalize firmware and strip string values."""
     cleaned = []
     for item in raw_list:
         if not isinstance(item, dict):
@@ -86,10 +62,27 @@ def clean_inverter_info_list(raw_list):
         cleaned.append(cleaned_item)
     return cleaned
 
-
 # --- Interpretation Helpers ---
 
+def interpret_inverter_state(inverter_info):
+    """Return a human-readable inverter state."""
+    if inverter_info and len(inverter_info) > 0:
+        try:
+            state_num = int(inverter_info[0].get("state"))
+        except Exception:
+            state_num = inverter_info[0].get("state")
+        if state_num == 0:
+            return "Inverter Off"
+        elif state_num == 1:
+            return "Preparing To Power Home"
+        elif state_num == 5:
+            return "Powering Home"
+        else:
+            return "Unknown State"
+    return None
+
 def interpret_charger_status(charger_info, inverter_info):
+    """Return human-readable charger state, taking inverter info into account."""
     if not charger_info:
         return None
     state = charger_info.get("state")
@@ -116,39 +109,23 @@ def interpret_charger_status(charger_info, inverter_info):
         return f"Charger Fault ({state})"
     return state or "Unknown"
 
-def interpret_inverter_state(inverter_info):
-    if inverter_info and len(inverter_info) > 0:
-        try:
-            state_num = int(inverter_info[0].get("state"))
-        except Exception:
-            state_num = inverter_info[0].get("state")
-        if state_num == 0:
-            return "Inverter Off"
-        elif state_num == 1:
-            return "Preparing To Power Home"
-        elif state_num == 5:
-            return "Powering Home"
-        else:
-            return "Unknown State"
-    return None
-
 # --- Misc Helpers ---
 
 def dump_json(data):
     try:
         return json.dumps(data, indent=2)
     except Exception as e:
-        _LOGGER.error(f"Error dumping JSON data: {e}")
+        _LOGGER.error(f"Error dumping JSON: {e}")
         return "Error dumping JSON"
 
 def format_elapsed_time(dt_obj):
+    """Return a human-readable elapsed time from a datetime object."""
     if not dt_obj:
         return None
     try:
         now = hass_dt.utcnow()
         diff = now - hass_dt.as_utc(dt_obj)
         seconds = int(diff.total_seconds())
-
         if seconds < 0:
             return "just now"
         if seconds < 60:
@@ -166,8 +143,11 @@ def format_elapsed_time(dt_obj):
         _LOGGER.error(f"Error formatting elapsed time: {e}")
         return None
 
+# --- Coordinator Class ---
 
 class FcspDataUpdateCoordinator(DataUpdateCoordinator):
+    """Coordinator for FCSP inverter and charger data."""
+
     def __init__(self, hass, config_entry, fcsp, cache_store, cached_data, scan_interval):
         super().__init__(
             hass,
@@ -177,49 +157,54 @@ class FcspDataUpdateCoordinator(DataUpdateCoordinator):
         )
         self._fcsp = fcsp
         self._cache_store = cache_store
-        self.data = cached_data or {}
         self._last_update_dt = None
 
+        # Start with any cached data (if present)
+        self.data = cached_data or {}
         cached_status = self.data.get("status") or {}
         inverter_flag = cached_status.get("inverter_count", 0)
         self._home_integration_attached = inverter_flag >= 1
 
     async def _fetch_fcsp_data(self):
+        """Run blocking API call in executor and return result."""
         return await self.hass.async_add_executor_job(self._fcsp.get_status)
 
     async def _async_update_data(self):
+        """Fetch fresh FCSP data, clean it, and return it."""
         try:
             fresh_data = await self._fetch_fcsp_data()
+
+            # Normalize & clean inverter info
             inverter_info = fresh_data.get("inverter_info") or []
             inverter_info = normalize_inverter_states(inverter_info)
             inverter_info = clean_inverter_info_list(inverter_info)
             fresh_data["inverter_info"] = inverter_info
 
-            self.data = fresh_data
-
-        # Correct inverter_count lookup at root level
+            # Update attached flag based on inverter_count at root level
             inverter_flag = fresh_data.get("inverter_count", 0)
             self.home_integration_attached = inverter_flag >= 1
 
+            # Timestamp
             self._last_update_dt = hass_dt.utcnow()
 
+            # Persist to cache if available
             if self._cache_store:
                 await self._cache_store.save(fresh_data)
 
-            _LOGGER.debug("FCSP fresh data fetched and cached successfully.")
-            _LOGGER.debug(f"Home Integration Attached: {self.home_integration_attached}")
-            _LOGGER.debug(f"Data keys: {list(fresh_data.keys())}")
+            # Helpful debug: log the inverter numeric state
+            inv_state = self.get_inverter_state_raw(fresh_data)
+            _LOGGER.debug("FCSP fresh data fetched (inverter_state=%s). Keys: %s", inv_state, list(fresh_data.keys()))
+
             return fresh_data
+
         except Exception as e:
             _LOGGER.warning("Falling back to cached data due to error: %s", e)
             if self.data:
                 inverter_flag = self.data.get("inverter_count", 0)
                 self.home_integration_attached = inverter_flag >= 1
-                _LOGGER.debug(f"Fallback Home Integration Attached: {self.home_integration_attached}")
-                _LOGGER.debug(f"Cached data keys: {list(self.data.keys())}")
+                _LOGGER.debug("Using cached data (inverter_count=%s). Keys: %s", inverter_flag, list(self.data.keys()))
                 return self.data
             raise
-
 
     @property
     def home_integration_attached(self) -> bool:
@@ -231,7 +216,6 @@ class FcspDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def last_update_datetime(self) -> str:
-        """Return the last update time as a formatted local string (e.g., 'Aug 4, 2025 at 3:47 PM')."""
         if not self._last_update_dt:
             return "Never"
         try:
@@ -240,3 +224,37 @@ class FcspDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as e:
             _LOGGER.error(f"Error formatting last update datetime: {e}")
             return str(self._last_update_dt)
+
+    # --- Patched Power-cut helpers ---
+
+    def get_inverter_state_raw(self, data=None) -> int:
+        """Return the raw inverter state code (numeric), default 0.
+        Checks 'inverter_states' first, then falls back to 'inverter_info'.
+        """
+        source = data or self.data or {}
+        # Prefer inverter_states (numeric)
+        inv_states = source.get("inverter_states", [])
+        if inv_states:
+            try:
+                return int(inv_states[0])
+            except Exception:
+                _LOGGER.debug("Inverter state in inverter_states is not numeric: %s", inv_states[0])
+                return 0
+        # Fallback to inverter_info
+        inv_info = source.get("inverter_info", [])
+        if inv_info:
+            raw = inv_info[0].get("state", 0)
+            try:
+                return int(raw)
+            except Exception:
+                normalized = str(raw).replace("_", " ").strip().lower()
+                if normalized in ("not ready", "0", "off", "inverter off"):
+                    return 0
+                return 1
+        return 0
+
+    def is_power_cut_active(self) -> bool:
+        """Return True if inverter indicates a power cut (any non-zero state)."""
+        raw = self.get_inverter_state_raw()
+        _LOGGER.debug("Checking power cut: raw inverter state=%s, active=%s", raw, raw != 0)
+        return raw != 0
