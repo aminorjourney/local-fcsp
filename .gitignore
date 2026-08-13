@@ -25,3 +25,9 @@ env/
 deps/
 home-assistant_v2.db
 
+# Firmware/disk images never belong in this repo (HACS-distributed integration).
+# RE work, including any FCSP disk dumps, lives in the sibling fcsp-re project.
+*.img
+*.img.gz
+*.bin
+
