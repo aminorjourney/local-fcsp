@@ -1,7 +1,7 @@
 {
   "domain": "local_fcsp",
   "name": "Local Ford Charge Station Pro",
-  "version": "2026.4.0",
+  "version": "2026.8.0b0",
   "author": "Nikki Gordon-Bloomfield (Aminorjourney)",
   "config_flow": true,
   "iot_class": "local_polling",

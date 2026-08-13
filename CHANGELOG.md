@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2026.8.0b0] - 2026-08-13
+
+> 🚧 **Pre-release (beta), `v2-beta` branch.** Not published as a release and not on the stable
+> update channel — HACS users won't see this unless they explicitly enable "Show beta versions"
+> for this repository once a corresponding pre-release is actually published. Read-only, same as
+> 2026.4.0; no write/control capability yet (still gated per `AGENTS.md`, pending validated
+> `fcsp-re` findings). This version exists to start integrating what `fcsp-re` has already
+> validated, beginning with corrected version reporting below.
+
+### Fixed
+
+- **Corrected two misleading sensor labels** — "Firmware Version" and "System Software" were
+  never actually reporting the charge station's own firmware. Traced via the sibling `fcsp-re`
+  reverse-engineering project directly against the FCSP's own local API code:
+  - "Firmware Version" (`charge_station_firmware_version`) reports the **Zigbee module's**
+    version, not the charger's — renamed to **"Zigbee Module Version"**.
+  - "System Software" (`charge_station_system_software`) reports the **Communication Module's**
+    version, not the charger's overall app/software version — renamed to **"Communication
+    Module Version"**.
+  - Entity IDs/unique IDs are unchanged, so existing automations and history keep working —
+    only the displayed name changed.
+  - The FCSP's charger-level app/software version (what actually changes when the unit updates)
+    isn't exposed by the local API at all, so there's currently no sensor for it — this is a
+    device-side limitation, not something this integration can currently work around.
+  - "Hardware Version" is left as-is; it's technically accurate but the device hardcodes it to
+    the same value on every unit, so don't read anything unit-specific into it.
+
 ## [2026.4.0] - 2026-04-25
 
 > ⚠️ **BREAKING CHANGES** — please read before updating.

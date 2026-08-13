@@ -93,13 +93,23 @@ def _max_amps(data):
 def _ip_address(info):
     return clean_string(info.get("ipAddr")) if info else None
 
+# NOTE on these three: confirmed via fcsp-re RE work (2026-08-13) that the FCSP's own
+# `chargerinfo` API doesn't report what these field names suggest. `vWiFi` is actually the
+# Communication Module's own version, `vSystem` is actually the Zigbee module's version, and
+# `vHw` is a hardcoded literal ('1.0.0') baked into the device's API code — identical on every
+# unit, not real per-device hardware info. None of these are the charger's own app/software
+# version; the device doesn't expose that over the local API at all (see fcsp-re findings/11).
+
 def _wifi_firmware(info):
+    """Communication Module version (device API field: vWiFi)."""
     return clean_string(info.get("vWiFi")) if info else None
 
 def _system_firmware(info):
+    """Zigbee module version (device API field: vSystem)."""
     return clean_string(info.get("vSystem")) if info else None
 
 def _hw_version(info):
+    """Always '1.0.0' — hardcoded on-device, not unit-specific (device API field: vHw)."""
     return clean_string(info.get("vHw")) if info else None
 
 def _wifi_mac(info):
@@ -177,8 +187,11 @@ SENSORS: list[FcspSensorEntityDescription] = [
         device_key="charge_station",
     ),
     FcspSensorEntityDescription(
+        # Entity ID / key intentionally unchanged (was "System Software") to avoid breaking
+        # existing installs — display name corrected 2026-08-13. This reports the
+        # Communication Module's own version, not the charger's overall app/software version.
         key="charge_station_system_software",
-        name="System Software",
+        name="Communication Module Version",
         icon="mdi:tag",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_wifi_firmware,
@@ -186,8 +199,12 @@ SENSORS: list[FcspSensorEntityDescription] = [
         device_key="charge_station",
     ),
     FcspSensorEntityDescription(
+        # Entity ID / key intentionally unchanged (was "Firmware Version") to avoid breaking
+        # existing installs — display name corrected 2026-08-13. This reports the Zigbee
+        # module's own version, not the charger's overall firmware/software version, which
+        # isn't exposed by the local API at all (see fcsp-re findings/11).
         key="charge_station_firmware_version",
-        name="Firmware Version",
+        name="Zigbee Module Version",
         icon="mdi:chip",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_system_firmware,
@@ -195,6 +212,8 @@ SENSORS: list[FcspSensorEntityDescription] = [
         device_key="charge_station",
     ),
     FcspSensorEntityDescription(
+        # Left as-is (not relabeled/removed): the device API hardcodes this to '1.0.0' on
+        # every unit (see fcsp-re findings/11), so it's technically accurate but never varies.
         key="charge_station_hardware_version",
         name="Hardware Version",
         icon="mdi:integrated-circuit-chip",
