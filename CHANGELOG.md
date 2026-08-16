@@ -38,6 +38,15 @@ All notable changes to this project will be documented in this file.
   `fault_code` attribute on the Status sensor instead of interpolating it into the state string.
   Entity ID/unique ID unchanged.
 
+- **Home Integration System status sensor had a latent, not-yet-triggered version of the same
+  bug** — `interpret_inverter_state()` returned the label `"State 3"` for inverter state `3`, but
+  `INVERTER_STATE_OPTIONS` (the sensor's approved ENUM list) has `"Inverter Standby"` instead —
+  the label was renamed on one side at some point and never updated on the other. Would have
+  crashed identically to the Status sensor bug above the moment the inverter ever reported that
+  state live. Found 2026-08-16 by auditing every `interpret_*` return value against its sensor's
+  options list after fixing the Status sensor bug prompted the question "are there other ones of
+  these?" Fixed by matching the label the ENUM actually approves.
+
 - **Corrected two misleading sensor labels** — "Firmware Version" and "System Software" were
   never actually reporting the charge station's own firmware. Traced via the sibling `fcsp-re`
   reverse-engineering project directly against the FCSP's own local API code:

@@ -87,7 +87,14 @@ def interpret_inverter_state(inverter_info):
     return {
         0: "Inverter Off",
         1: "Preparing To Power Home",
-        3: "State 3",
+        # Must match INVERTER_STATE_OPTIONS in sensor.py exactly — this is an ENUM-typed
+        # sensor, so any label returned here that isn't in that fixed list crashes
+        # async_write_ha_state on every update (same failure mode as the charger status
+        # ENUM crash; see interpret_charger_status() above and CHANGELOG for the incident
+        # that one caused). "Inverter Standby" was renamed from "State 3" in sensor.py at
+        # some point without this side being updated to match — found 2026-08-16 by
+        # cross-checking every return value here against the approved options list.
+        3: "Inverter Standby",
         5: "Powering Home",
     }.get(state, "Unknown State")
 
