@@ -561,6 +561,23 @@ class LocalFCSPSensor(CoordinatorEntity, SensorEntity):
 
         return self.entity_description.icon
 
+    @property
+    def extra_state_attributes(self):
+        """Surface the raw charger fault code, when present.
+
+        interpret_charger_status() collapses any "CFxx" state to the bare ENUM value
+        "Charger Fault" (required for the strict options list — see coordinator.py). The
+        specific code isn't lost, just moved here instead of being interpolated into the
+        state string, which is what previously crashed this sensor on every fault.
+        """
+        if self.entity_description.key != "charge_station_status":
+            return None
+        info = (self.coordinator.data or {}).get("charger_info") or {}
+        state = info.get("state")
+        if state and str(state).startswith("CF"):
+            return {"fault_code": state}
+        return None
+
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
         if self.entity_description.key.endswith("_last_updated"):

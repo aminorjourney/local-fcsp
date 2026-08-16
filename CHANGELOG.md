@@ -11,7 +11,32 @@ All notable changes to this project will be documented in this file.
 > `fcsp-re` findings). This version exists to start integrating what `fcsp-re` has already
 > validated, beginning with corrected version reporting below.
 
+### Added
+
+- **Documented the full commissioning status code table** (`CE0xx`/`CS0xx`) in `coordinator.py` as
+  `COMMISSION_STATUS_CODES` — not yet wired into a sensor, but a validated reference for one.
+  Traced from the device's own `save_commissionstatus()` source during a live overnight incident
+  (2026-08-14) investigating why `configstatus`/`chargerinfo` were failing — see `fcsp-re`
+  `findings/15` for the full chain. Worth knowing even without a sensor: `CE012` ("Exception
+  description") is a generic catch-all written by many unrelated exception handlers on the
+  device's own side, so a persistent `CE012` reading doesn't necessarily mean anything is
+  currently broken — it may just be stale from a past failure, since nothing ordinary re-writes
+  a good value afterward.
+
 ### Fixed
+
+- **Status sensor crashed on every real charger fault** — `interpret_charger_status()` returned
+  `"Charger Fault (CF01)"` (or whichever code), but the Status sensor is an `ENUM`-typed sensor
+  with a fixed options list that only contains the bare `"Charger Fault"`. Any actual fault
+  reported by the charger — any code, since none were ever in the list — mismatched the ENUM's
+  allowed values and threw `ValueError` out of `async_write_ha_state` on every single coordinator
+  update for as long as the fault was active. Confirmed live (2026-08-14): 40 occurrences in under
+  an hour during a real `CF01` fault, and removing/re-adding the integration didn't help, because
+  the cause wasn't connection state. The sensor's icon lookup had the identical bug, keyed the
+  same way. Fixed by having `interpret_charger_status()` return the bare label (matching the
+  options list and icon dict) and surfacing the actual code separately via a new
+  `fault_code` attribute on the Status sensor instead of interpolating it into the state string.
+  Entity ID/unique ID unchanged.
 
 - **Corrected two misleading sensor labels** — "Firmware Version" and "System Software" were
   never actually reporting the charge station's own firmware. Traced via the sibling `fcsp-re`
