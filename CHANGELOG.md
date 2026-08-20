@@ -2,6 +2,67 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2026.8.0b0] - 2026-08-13
+
+> 🚧 **Pre-release (beta), `v2-beta` branch.** Not published as a release and not on the stable
+> update channel — HACS users won't see this unless they explicitly enable "Show beta versions"
+> for this repository once a corresponding pre-release is actually published. Read-only, same as
+> 2026.4.0; no write/control capability yet (still gated per `AGENTS.md`, pending validated
+> `fcsp-re` findings). This version exists to start integrating what `fcsp-re` has already
+> validated, beginning with corrected version reporting below.
+
+### Added
+
+- **Documented the full commissioning status code table** (`CE0xx`/`CS0xx`) in `coordinator.py` as
+  `COMMISSION_STATUS_CODES` — not yet wired into a sensor, but a validated reference for one.
+  Traced from the device's own `save_commissionstatus()` source during a live overnight incident
+  (2026-08-14) investigating why `configstatus`/`chargerinfo` were failing — see `fcsp-re`
+  `findings/15` for the full chain. Worth knowing even without a sensor: `CE012` ("Exception
+  description") is a generic catch-all written by many unrelated exception handlers on the
+  device's own side, so a persistent `CE012` reading doesn't necessarily mean anything is
+  currently broken — it may just be stale from a past failure, since nothing ordinary re-writes
+  a good value afterward.
+
+### Fixed
+
+- **Status sensor crashed on every real charger fault** — `interpret_charger_status()` returned
+  `"Charger Fault (CF01)"` (or whichever code), but the Status sensor is an `ENUM`-typed sensor
+  with a fixed options list that only contains the bare `"Charger Fault"`. Any actual fault
+  reported by the charger — any code, since none were ever in the list — mismatched the ENUM's
+  allowed values and threw `ValueError` out of `async_write_ha_state` on every single coordinator
+  update for as long as the fault was active. Confirmed live (2026-08-14): 40 occurrences in under
+  an hour during a real `CF01` fault, and removing/re-adding the integration didn't help, because
+  the cause wasn't connection state. The sensor's icon lookup had the identical bug, keyed the
+  same way. Fixed by having `interpret_charger_status()` return the bare label (matching the
+  options list and icon dict) and surfacing the actual code separately via a new
+  `fault_code` attribute on the Status sensor instead of interpolating it into the state string.
+  Entity ID/unique ID unchanged.
+
+- **Home Integration System status sensor had a latent, not-yet-triggered version of the same
+  bug** — `interpret_inverter_state()` returned the label `"State 3"` for inverter state `3`, but
+  `INVERTER_STATE_OPTIONS` (the sensor's approved ENUM list) has `"Inverter Standby"` instead —
+  the label was renamed on one side at some point and never updated on the other. Would have
+  crashed identically to the Status sensor bug above the moment the inverter ever reported that
+  state live. Found 2026-08-16 by auditing every `interpret_*` return value against its sensor's
+  options list after fixing the Status sensor bug prompted the question "are there other ones of
+  these?" Fixed by matching the label the ENUM actually approves.
+
+- **Corrected two misleading sensor labels** — "Firmware Version" and "System Software" were
+  never actually reporting the charge station's own firmware. Traced via the sibling `fcsp-re`
+  reverse-engineering project directly against the FCSP's own local API code:
+  - "Firmware Version" (`charge_station_firmware_version`) reports the **Zigbee module's**
+    version, not the charger's — renamed to **"Zigbee Module Version"**.
+  - "System Software" (`charge_station_system_software`) reports the **Communication Module's**
+    version, not the charger's overall app/software version — renamed to **"Communication
+    Module Version"**.
+  - Entity IDs/unique IDs are unchanged, so existing automations and history keep working —
+    only the displayed name changed.
+  - The FCSP's charger-level app/software version (what actually changes when the unit updates)
+    isn't exposed by the local API at all, so there's currently no sensor for it — this is a
+    device-side limitation, not something this integration can currently work around.
+  - "Hardware Version" is left as-is; it's technically accurate but the device hardcodes it to
+    the same value on every unit, so don't read anything unit-specific into it.
+
 ## [2026.4.0] - 2026-04-25
 
 > ⚠️ **BREAKING CHANGES** — please read before updating.

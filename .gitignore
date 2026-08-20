@@ -31,3 +31,6 @@ home-assistant_v2.db
 *.img.gz
 *.bin
 
+# graphify tool output/cache - local analysis artifacts, not source
+graphify-out/
+

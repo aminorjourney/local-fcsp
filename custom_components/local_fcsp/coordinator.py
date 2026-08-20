@@ -87,7 +87,14 @@ def interpret_inverter_state(inverter_info):
     return {
         0: "Inverter Off",
         1: "Preparing To Power Home",
-        3: "State 3",
+        # Must match INVERTER_STATE_OPTIONS in sensor.py exactly — this is an ENUM-typed
+        # sensor, so any label returned here that isn't in that fixed list crashes
+        # async_write_ha_state on every update (same failure mode as the charger status
+        # ENUM crash; see interpret_charger_status() above and CHANGELOG for the incident
+        # that one caused). "Inverter Standby" was renamed from "State 3" in sensor.py at
+        # some point without this side being updated to match — found 2026-08-16 by
+        # cross-checking every return value here against the approved options list.
+        3: "Inverter Standby",
         5: "Powering Home",
     }.get(state, "Unknown State")
 
@@ -114,8 +121,52 @@ def interpret_charger_status(charger_info, inverter_info):
             }.get(inv_state, "Power Transferring")
         return "Power Transferring"
     if state and state.startswith("CF"):
-        return f"Charger Fault ({state})"
+        # NOTE: deliberately returns the bare label, not f"Charger Fault ({state})".
+        # This value feeds an ENUM-typed sensor (see sensor.py's CHARGER_STATE_OPTIONS),
+        # which requires an exact match against a fixed options list — any CFxx code baked
+        # into the string here would fail that match and crash async_write_ha_state on every
+        # update while a fault is active (confirmed live 2026-08-14, 40 occurrences in one
+        # session). The raw code is preserved separately via LocalFCSPSensor.extra_state_attributes.
+        return "Charger Fault"
     return state or "Unknown"
+
+
+# ---------------------------------------------------------------------------
+# Commissioning status codes (config_status / /api/v1/configstatus)
+# ---------------------------------------------------------------------------
+#
+# NOT currently surfaced as a sensor — documented here as a validated reference for a future
+# "Commissioning Status" sensor, same pattern as interpret_charger_status()/
+# interpret_inverter_state() above. See fcsp-re findings/15 for the full investigation this
+# came out of (2026-08-14).
+#
+# Read directly from the device's own save_commissionstatus() comment block in views.py. This
+# is the device's persisted provisioning status (/home/root/wifi/commission_code), served
+# verbatim by this endpoint — very plausibly what the Ford Charge Station Pro Setup app itself
+# checks to decide whether it's talking to a properly-provisioned charger, independent of
+# FordPass (cloud-routed, doesn't touch this).
+#
+# CE012 ("Exception description") is a generic catch-all written by 10+ separate unguarded
+# exception handlers across the device's own views.py — any unrelated backend hiccup can
+# clobber this status with CE012, and nothing ordinary writes a good value back afterward
+# (that only happens inside an actual registration/wlan-config flow). A persistently CE012
+# reading here doesn't necessarily mean anything is currently wrong — it may just be stale
+# from a past failure. Confidence: validated (read directly from device source, 2026-08-14).
+COMMISSION_STATUS_CODES = {
+    "CE002": "Invalid commissioning information",
+    "CE010": "Unable to connect to router — verify SSID and password",
+    "CE011": "Connected to router but could not acquire IP address",
+    "CE012": "Exception description (generic error)",
+    "CE013": "Invalid registration data provided",
+    "CE014": "Invalid device information",
+    "CE015": "Invalid product code",
+    "CE016": "Unable to match the username provided",
+    "CE017": "Invalid email address",
+    "CE018": "Charger has already been registered",
+    "CS001": "Commissioning initiated",
+    "CS005": "Connected to internet",
+    "CS010": "Commissioning successful",
+}
 
 
 def dump_json(data):
